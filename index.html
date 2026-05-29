@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Live Lake Garda wind forecast and real-time pressure delta tracking. Compare professional weather models like MeteoSwiss, AROME and ICON at a glance.">
+<title>Lake Garda Wind Forecast - Real Pressure Delta</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3"></script>
+<script src="https://cdn.jsdelivr.net/npm/suncalc@1.9.0/suncalc.js"></script>
+</head>
+<body>
+<header>
+    <div class="title">
+        <h1>Wind Lake Garda</h1>
+        <p>Real pressure delta tracking and comparative forecasting</p>
+    </div>
+    <div class="right-side">
+        <div class="stats-container">
+            <div class="stat-item"><div class="stat-label">Ghedi</div><div class="stat-value" id="val-ghedi">-</div></div>
+            <div class="stat-item"><div class="stat-label">Bolzano</div><div class="stat-value" id="val-bolzano">-</div></div>
+            <div class="stat-item"><div class="stat-label">Real Delta P</div><div class="stat-value" id="val-delta" style="color: var(--delta-color);">-</div></div>
+            <div class="stat-item"><div class="stat-label">Last Update</div><div class="stat-value" id="val-time">-</div></div>
+        </div>
+        <div class="bottom-controls">
+            <div class="controls" id="chartControls"></div>
+            <div class="controls sun-controls-wrapper" id="sunControls">
+                <button class="btn inactive" id="btn-sunrise" data-color="#f59e0b">Sunrise time</button>
+                <button class="btn inactive" id="btn-sunset" data-color="#6366f1">Sunset time</button>
+            </div>
+        </div>
+    </div>
+</header>
+<div class="chart-container">
+    <div id="loading">Caricamento dati...</div>
+    <div class="axis-container"><canvas id="axisChart"></canvas></div>
+    <div class="chart-scroll-box"><div class="chart-scroll-wrapper"><canvas id="myChart"></canvas></div></div>
+</div>
+<script>
+window.onload = function() {
+    const URL = 'https://script.google.com/macros/s/AKfycbzZD5yXjnR9t60r0WNthJsqg1kybLguP2l6bCN4ciPO4mLqTCDdcFKxcMfMhPO2L-iPmA/exec';
+    let showSunrise = false, showSunset = false, myChart = null;
+    let visibilityState = { 'Real Pressure Δ': true, 'MeteoSwiss': true, 'AROME': true, 'ICON': true, 'GFS': true };
+
+    function fetchData() {
+        fetch(URL).then(res => res.json()).then(data => {
+            document.getElementById('loading').style.display = 'none';
+            if (myChart) {
+                myChart.data.datasets.forEach((ds, i) => visibilityState[ds.label] = myChart.isDatasetVisible(i));
+                myChart.destroy();
+            }
+
+            let lastDataPoint = data.findLast(d => d.real_delta !== null) || data[data.length - 1];
+            const lastDate = new Date(lastDataPoint.time), lastDateTime = lastDate.getTime();
+            const isMobile = window.innerWidth <= 768;
+
+            const viewMin = new Date(lastDateTime - 172800000).toISOString();
+            const viewMax = new Date(lastDateTime + 432000000).toISOString();
+
+            let minVal = Infinity, maxVal = -Infinity;
+            data.forEach(d => { ['real_delta', 'meteoswiss_icon_ch1', 'meteofrance_seamless', 'icon_seamless', 'gfs_seamless'].forEach(k => { if(d[k]!==null){minVal=Math.min(minVal, d[k]); maxVal=Math.max(maxVal, d[k]);} }); });
+            const yMin = Math.floor(minVal) - 1, yMax = Math.ceil(maxVal) + 1;
+
+            myChart = new Chart(document.getElementById('myChart'), {
+                type: 'line',
+                data: { datasets: [
+                    { label: 'Real Pressure Δ', data: data.map(d=>({x:d.time,y:d.real_delta})), borderColor: '#1e3a8a', borderWidth: isMobile ? 2 : 3, pointRadius: 0, tension: 0.52 },
+                    { label: 'MeteoSwiss', data: data.map(d=>({x:d.time,y:d.meteoswiss_icon_ch1})), borderColor: '#ef4444', borderWidth: 1, borderDash: [3, 2], pointRadius: 0},
+                    { label: 'AROME', data: data.map(d=>({x:d.time,y:d.meteofrance_seamless})), borderColor: '#f59e0b', borderWidth: 1, borderDash: [3, 2], pointRadius: 0},
+                    { label: 'ICON', data: data.map(d=>({x:d.time,y:d.icon_seamless})), borderColor: '#10b981', borderWidth: 1, borderDash: [3, 2], pointRadius: 0},
+                    { label: 'GFS', data: data.map(d=>({x:d.time,y:d.gfs_seamless})), borderColor: '#3b82f6', borderWidth: 1, borderDash: [3, 2], pointRadius: 0}
+                ] },
+                options: { 
+                    responsive: true, maintainAspectRatio: false, layout: { padding: { top: 25 } }, 
+                    plugins: { 
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                title: (context) => new Date(context[0].parsed.x).toLocaleString('it-IT', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }),
+                                label: function(context) {
+                                    let val = context.parsed.y;
+                                    let label = context.dataset.label || '';
+                                    let sign = val > 0 ? '+' : '';
+                                    return `${label}: ${sign}${val.toFixed(1)} hPa`;
+                                }
+                            }
+                        }
+                    }, 
+                    scales: { 
+                        x: { type: 'time', time: { unit: 'hour', stepSize: 3 }, min: viewMin, max: viewMax, ticks: { callback: v => (new Date(v).getHours() % 3 === 0) ? new Date(v).getHours() + 'h' : null, autoSkip: false }, grid: { color: ctx => (new Date(ctx.tick.value).getHours() === 12) ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.05)', drawBorder: true, borderDash: [2, 4] } }, 
+                        y: { min: yMin, max: yMax, grid: { color: ctx => (ctx.tick.value === 0) ? '#556798' : (ctx.tick.value % 2 === 0) ? 'rgba(0,0,0,0.15)' : 'rgba(0,0,0,0.05)', drawBorder: true, borderDash: [2, 4], lineWidth: 1 }, ticks: { display: true, callback: v => v + ' hPa' } } 
+                    } 
+                },
+                plugins: [
+                    { id: 'lastUpdateLine', afterDraw(chart) { 
+                        const { ctx, scales: { x, y } } = chart; 
+                        const xPos = x.getPixelForValue(lastDateTime); 
+                        ctx.save(); 
+                        ctx.strokeStyle = '#556798'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(xPos, y.top); ctx.lineTo(xPos, y.bottom); ctx.stroke(); 
+                        const timeStr = lastDate.toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit', hour12: false});
+                        const deltaVal = lastDataPoint.real_delta;
+                        const deltaStr = deltaVal !== null ? (deltaVal >= 0 ? '+' : '') + deltaVal.toFixed(1) : '-';
+                        const text = `${deltaStr} hPa @${timeStr}`;
+                        ctx.font = 'bold 10px Inter'; const textWidth = ctx.measureText(text).width; const labelHeight = 16, padding = 4; 
+                        ctx.fillStyle = '#1e3a8a'; ctx.fillRect(xPos - (textWidth/2) - padding, y.top - labelHeight, textWidth + (padding * 2), labelHeight); 
+                        ctx.fillStyle = '#ffffff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, xPos, y.top - (labelHeight / 2)); ctx.restore(); 
+                    }},
+                    { id: 'dateLabels', afterDraw(chart) { const { ctx, scales: { x, y } } = chart; ctx.save(); ctx.fillStyle = '#64748b'; ctx.font = 'bold 11px Inter'; ctx.textAlign = 'left'; let d = new Date(x.min); d.setHours(0,0,0,0); while (d.getTime() <= x.max) { const xPos = x.getPixelForValue(d.getTime()); if (xPos >= x.left && xPos <= x.right) { ctx.strokeStyle = 'rgba(0,0,0,0.2)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(xPos, y.top); ctx.lineTo(xPos, y.bottom); ctx.stroke(); ctx.fillText(d.toLocaleDateString('en-GB', {weekday:'short', day:'numeric'}).toUpperCase(), xPos + 10, y.top + 20); } d.setDate(d.getDate() + 1); } ctx.restore(); } },
+                    { id: 'sunLines', beforeDraw(chart) { if (!showSunrise && !showSunset) return; const { ctx, scales: { x, y } } = chart; let start = new Date(x.min), end = new Date(x.max); for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) { const times = SunCalc.getTimes(d, 45.76, 10.81); [{show:showSunrise, time:times.sunrise, color:'#f59e0b'}, {show:showSunset, time:times.sunset, color:'#6366f1'}].forEach(line => { if (line.show) { const xPos = x.getPixelForValue(line.time.getTime()); if (xPos >= x.left && xPos <= x.right) { ctx.save(); ctx.strokeStyle = line.color; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(xPos, y.top); ctx.lineTo(xPos, y.bottom); ctx.stroke(); const timeStr = line.time.toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit', hour12: false}); ctx.font = 'bold 11px Inter'; const textWidth = ctx.measureText(timeStr).width; const labelY = y.bottom - 10; ctx.fillStyle = line.color; ctx.fillRect(xPos - (textWidth/2) - 4, labelY - 8, textWidth + 8, 14); ctx.fillStyle = '#ffffff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(timeStr, xPos, labelY - 1); ctx.restore(); } } }); } } }
+                ]
+            });
+            myChart.data.datasets.forEach((ds, i) => myChart.setDatasetVisibility(i, visibilityState[ds.label]));
+            myChart.update();
+            if (isMobile) { setTimeout(() => { const scrollBox = document.querySelector('.chart-scroll-box'); scrollBox.scrollLeft = myChart.scales.x.getPixelForValue(lastDateTime) - (scrollBox.offsetWidth / 2); }, 500); }
+            const controls = document.getElementById('chartControls');
+            if (controls.children.length === 0) { myChart.data.datasets.forEach((ds, i) => { const btn = document.createElement('button'); btn.innerText = ds.label; btn.className = 'btn'; btn.onclick = () => { myChart.setDatasetVisibility(i, !myChart.isDatasetVisible(i)); myChart.update(); updateBtnStyles(); }; controls.appendChild(btn); }); }
+            updateBtnStyles();
+            document.getElementById('val-time').innerText = lastDate.toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit', hour12: false});
+            document.getElementById('val-ghedi').innerText = (lastDataPoint.ghedi_pressure || '-') + ' hPa';
+            document.getElementById('val-bolzano').innerText = (lastDataPoint.bolzano_pressure || '-') + ' hPa';
+            document.getElementById('val-delta').innerText = (lastDataPoint.real_delta !== null ? (lastDataPoint.real_delta >= 0 ? '+' : '') + lastDataPoint.real_delta.toFixed(1) + ' hPa' : '-');
+        });
+    }
+    function updateBtnStyles() { const controls = document.getElementById('chartControls'); Array.from(controls.children).forEach((btn, i) => { const vis = myChart.isDatasetVisible(i); const color = myChart.data.datasets[i].borderColor; btn.style.cssText = `background:${vis?color:''};color:${vis?'#fff':''};border-color:${vis?color:''}`; btn.classList.toggle('inactive', !vis); }); }
+    const upSun = (btn, act) => { const col = btn.getAttribute('data-color'); btn.style.cssText = `background:${act?col:''};color:${act?'#fff':''};border-color:${act?col:''}`; btn.classList.toggle('inactive', !act); };
+    document.getElementById('btn-sunrise').onclick = e => { showSunrise = !showSunrise; upSun(e.target, showSunrise); myChart.update(); };
+    document.getElementById('btn-sunset').onclick = e => { showSunset = !showSunset; upSun(e.target, showSunset); myChart.update(); };
+    fetchData(); setInterval(fetchData, 60000);
+};
+</script>
+</body>
+</html>
