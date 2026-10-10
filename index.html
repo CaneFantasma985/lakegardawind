@@ -1,0 +1,1105 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lake Garda Wind Forecast - Live Pressure Delta</title>
+  <!-- Chart.js + Adapter Luxon -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/luxon@3/build/global/luxon.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    body {
+      width: 100vw;
+      min-width: 1550px;
+      height: 100vh;
+      min-height: 980px;
+      background-color: #f1f5f9;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow-x: auto;
+      overflow-y: auto;
+    }
+    .wrapper {
+      width: 1500px;
+      height: 980px;
+      display: flex;
+      flex-direction: column;
+      background: white;
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+      position: relative;
+      flex-shrink: 0;
+    }
+    /* Zoom all'90% applicato SOLO su schermi piccoli / mobile / tablet */
+    @media screen and (max-width: 1600px) {
+      body {
+        min-width: 1150px;
+      }
+      .wrapper {
+        zoom: 0.75;
+      }
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+      border-bottom: 1px solid #e2e8f0;
+      padding-bottom: 8px;
+    }
+    .header-left h2 {
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: #0f172a;
+    }
+    .header-left p {
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: #475569;
+      margin-top: 3px;
+    }
+    .header-right-unified {
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+      overflow: hidden;
+    }
+    .info-section {
+      padding: 6px 14px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .info-section:not(:last-child) {
+      border-right: 1px solid #cbd5e1;
+    }
+    .info-label {
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .info-value {
+      font-size: 0.85rem;
+      font-weight: 800;
+      color: #0284c7;
+    }
+    .info-value-countdown {
+      font-size: 0.85rem;
+      font-weight: 800;
+      color: #334155;
+      text-transform: uppercase;
+    }
+    .legends-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 4px;
+      margin-bottom: 10px;
+    }
+    .top-legend-container {
+      display: flex;
+      justify-content: flex-start;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .legend-btn {
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 5px 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: #1e293b;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+      transition: all 0.2s ease;
+      user-select: none;
+    }
+    .legend-btn:hover {
+      background: #f1f5f9;
+      border-color: #94a3b8;
+    }
+    .chart-container {
+      flex: 1;
+      width: 100%;
+      position: relative;
+      min-height: 0;
+    }
+    #loading {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 1rem;
+      color: #64748b;
+      font-weight: 600;
+      z-index: 10;
+    }
+    .hourly-info-bar {
+      width: 100%;
+      height: 135px;
+      position: relative;
+      margin-top: 8px;
+      border-top: 1px solid #e2e8f0;
+      border-bottom: 1px solid #e2e8f0;
+      background: #f8fafc;
+      overflow: hidden;
+    }
+    .hourly-labels-sidebar {
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 80px;
+      background: #f8fafc;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-around;
+      padding: 8px 0px 8px 4px;
+      z-index: 5;
+    }
+    .row-label {
+      font-size: 0.68rem;
+      font-weight: 800;
+      color: #475569;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+    .hourly-col-wrapper {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-around;
+      border-right: 1px dashed #e2e8f0;
+      padding: 8px 0;
+    }
+    .hourly-stars-vertical {
+      display: inline-flex;
+      flex-direction: column;
+      line-height: 1.0;
+      font-size: 1.1rem;
+    }
+    .star-on {
+      color: #d97706;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.18);
+    }
+    .star-off {
+      color: #cbd5e1;
+    }
+    .hourly-temp {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: #334155;
+    }
+    .hourly-weather-icon {
+      font-size: 1.15rem;
+      line-height: 1;
+      font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+    }
+    /* Blocco Live Data From The Spots */
+    .spots-container-wrapper {
+      margin-top: 10px;
+      width: 100%;
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+      overflow: hidden;
+    }
+    .spots-header-title {
+      font-size: 0.78rem;
+      font-weight: 800;
+      color: #0f172a;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      padding: 8px 14px;
+      background: #f1f5f9;
+      border-bottom: 1px solid #cbd5e1;
+      text-align: center;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .spots-header-title span#sheet-timestamp {
+      font-weight: 600;
+      color: #475569;
+      text-transform: none;
+      font-size: 0.72rem;
+    }
+    .spots-grid {
+      display: flex;
+      width: 100%;
+    }
+    .spot-section {
+      flex: 1;
+      padding: 10px 4px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .spot-section:not(:last-child) {
+      border-right: 1px solid #cbd5e1;
+    }
+    .spot-label {
+      font-size: 0.85rem;
+      font-weight: 800;
+      color: #1e293b;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      margin-bottom: 5px;
+    }
+    .spot-data-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px; 
+      width: 100%;
+      padding: 0 2px;
+    }
+    .spot-sub-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .spot-sub-label {
+      font-size: 0.65rem;
+      font-weight: 700;
+      color: #64748b;
+      text-transform: uppercase;
+      margin-bottom: 2px;
+    }
+    .spot-sub-value {
+      font-size: 0.95rem;
+      font-weight: 800;
+      color: #0284c7;
+      padding: 2px 4px;
+      border-radius: 4px;
+    }
+    /* Sfondo verdino per la base del vento */
+    .base-badge {
+      background-color: #d1fae5;
+      color: #065f46;
+    }
+    /* Sfondo rosaceo per la raffica */
+    .raffica-badge {
+      background-color: #ffe4e6;
+      color: #9f1239;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="header">
+      <div class="header-left">
+        <h2>Lake Garda Wind Forecast</h2>
+        <p>Live pressure delta monitoring and comparative forecasting</p>
+      </div>
+      <div class="header-right-unified">
+        <div class="info-section">
+          <span class="info-label">Last Update</span>
+          <span class="info-value" id="valDeltaReale">--</span>
+        </div>
+        <div class="info-section">
+          <span class="info-label">Next Update</span>
+          <span class="info-value-countdown" id="valCountdown">--:--</span>
+        </div>
+      </div>
+    </div>
+    
+    <div class="legends-bar">
+      <div class="chartjs-custom-legend top-legend-container" id="customLegend"></div>
+    </div>
+
+    <div class="chart-container">
+      <div id="loading">Loading data...</div>
+      <canvas id="timeChart"></canvas>
+    </div>
+    <div class="hourly-info-bar" id="hourlyInfoBar">
+      <div class="hourly-labels-sidebar">
+        <span class="row-label"> </span>
+        <span class="row-label">Forecast<br>Rating</span>
+        <span class="row-label">Temp °C</span>
+        <span class="row-label">Weather</span>
+      </div>
+    </div>
+
+    <!-- Blocco Live Data From The Spots -->
+    <div class="spots-container-wrapper">
+      <div class="spots-header-title">
+        <span>Live Data From The Spots</span>
+        <span id="sheet-timestamp">Updated: --</span>
+      </div>
+      <div class="spots-grid">
+        
+        <!-- 1. Torbole -->
+        <div class="spot-section">
+          <span class="spot-label">Torbole ⛵</span>
+          <div class="spot-data-row">
+            <div class="spot-sub-item"><span class="spot-sub-label">🌡️</span><span class="spot-sub-value" id="torbole-temp">--</span></div>
+            <div class="spot-sub-item"><span class="spot-sub-label">🧭</span><span class="spot-sub-value" id="torbole-dir">--</span></div>
+            <div class="spot-sub-item"><span class="spot-sub-label">Wind</span><span class="spot-sub-value base-badge" id="torbole-base">--</span></div>
+            <div class="spot-sub-item"><span class="spot-sub-label">Gust</span><span class="spot-sub-value raffica-badge" id="torbole-raffica">--</span></div>
+          </div>
+        </div>
+
+        <!-- 2. Limone -->
+        <div class="spot-section">
+          <span class="spot-label">Limone 🍋</span>
+          <div class="spot-data-row">
+            <div class="spot-sub-item"><span class="spot-sub-label">🌡️</span><span class="spot-sub-value" id="limone-temp">--</span></div>
+            <div class="spot-sub-item"><span class="spot-sub-label">🧭</span><span class="spot-sub-value" id="limone-dir">--</span></div>
+            <div class="spot-sub-item"><span class="spot-sub-label">Wind</span><span class="spot-sub-value base-badge" id="limone-base">--</span></div>
+            <div class="spot-sub-item"><span class="spot-sub-label">Gust</span><span class="spot-sub-value raffica-badge" id="limone-raffica">--</span></div>
+          </div>
+        </div>
+
+        <!-- 3. Campagnola -->
+        <div class="spot-section">
+          <span class="spot-label">Campagnola 🚀</span>
+          <div class="spot-data-row">
+            <div class="spot-sub-item"><span class="spot-sub-label">🌡️</span><span class="spot-sub-value" id="campagnola-temp">--</span></div>
+            <div class="spot-sub-item"><span class="spot-sub-label">🧭</span><span class="spot-sub-value" id="campagnola-dir">--</span></div>
+            <div class="spot-sub-item"><span class="spot-sub-label">Wind</span><span class="spot-sub-value base-badge" id="campagnola-base">--</span></div>
+            <div class="spot-sub-item"><span class="spot-sub-label">Gust</span><span class="spot-sub-value raffica-badge" id="campagnola-raffica">--</span></div>
+          </div>
+        </div>
+
+        <!-- 4. Malcesine -->
+        <div class="spot-section">
+          <span class="spot-label">Malcesine 🅿️</span>
+          <div class="spot-data-row">
+            <div class="spot-sub-item"><span class="spot-sub-label">🌡️</span><span class="spot-sub-value" id="malcesine-temp">--</span></div>
+            <div class="spot-sub-item"><span class="spot-sub-label">🧭</span><span class="spot-sub-value" id="malcesine-dir">--</span></div>
+            <div class="spot-sub-item"><span class="spot-sub-label">Wind</span><span class="spot-sub-value base-badge" id="malcesine-base">--</span></div>
+            <div class="spot-sub-item"><span class="spot-sub-label">Gust</span><span class="spot-sub-value raffica-badge" id="malcesine-raffica">--</span></div>
+          </div>
+        </div>
+
+        <!-- 5. Campione -->
+        <div class="spot-section">
+          <span class="spot-label">Campione 🏆</span>
+          <div class="spot-data-row">
+            <div class="spot-sub-item"><span class="spot-sub-label">🌡️</span><span class="spot-sub-value" id="campione-temp">--</span></div>
+            <div class="spot-sub-item"><span class="spot-sub-label">🧭</span><span class="spot-sub-value" id="campione-dir">--</span></div>
+            <div class="spot-sub-item"><span class="spot-sub-label">Wind</span><span class="spot-sub-value base-badge" id="campione-base">--</span></div>
+            <div class="spot-sub-item"><span class="spot-sub-label">Gust</span><span class="spot-sub-value raffica-badge" id="campione-raffica">--</span></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_URL = 'https://black-shape-f92b.nicolo-remelli.workers.dev/';
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw906F7qMzXBz6FR63HshUnNYcGiaSmdY3y_jU5VWY3Dyw1QCPayHXjr0Zrk6AukuZi/exec';
+    
+    let chartInstance = null;
+    let globalRawData = [];
+    let globalOpenMeteoData = { times: [], temps: [], codes: [] };
+    let globalSunData = { sunrises: [], sunsets: [] };
+    let showSunriseLines = false;
+    let showSunsetLines = false;
+    let nextRefreshTimestamp = null;
+    let countdownInterval = null;
+
+    function getActiveStarsCount(avgVal) {
+      const absVal = Math.abs(avgVal);
+      if (absVal >= 3.0) return 3;
+      if (absVal >= 2.0) return 2;
+      if (absVal >= 1.0) return 1;
+      return 0;
+    }
+
+    function getVerticalHourlyStarsHTML(activeCount) {
+      let html = '<div class="hourly-stars-vertical">';
+      for (let i = 1; i <= 3; i++) {
+        const className = i <= activeCount ? 'star-on' : 'star-off';
+        html += `<span class="${className}">★</span>`;
+      }
+      html += '</div>';
+      return html;
+    }
+
+    function getWeatherEmoji(code) {
+      if (code === undefined || code === null) return '—';
+      if (code === 0) return '☀';
+      if (code === 1 || code === 2) return '⛅';
+      if (code === 3) return '☁️';
+      if (code === 45 || code === 48) return '🌫';
+      if (code >= 51 && code <= 67) return '🌧️';
+      if (code >= 71 && code <= 77) return '🌨️';
+      if (code >= 80 && code <= 82) return '🌦️';
+      if (code >= 85 && code <= 86) return '❄';
+      if (code >= 95) return '⛈️';
+      return '🌤';
+    }
+
+    function updateHeaderLatestInfo(realDeltaArray) {
+      const validItems = realDeltaArray
+        .filter(item => item.real_delta !== null && item.real_delta !== undefined)
+        .sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
+      if (validItems.length > 0) {
+        const latest = validItems[validItems.length - 1];
+        const dateObj = new Date(latest.time);
+        const timeStr = dateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+        const dayStr = dateObj.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
+        const val = latest.real_delta;
+        const sign = val > 0 ? '+' : '';
+        document.getElementById('valDeltaReale').innerText = `${sign}${val} hPa (${dayStr} ${timeStr})`;
+      }
+    }
+
+    async function loadSpotData() {
+      try {
+        const response = await fetch(SCRIPT_URL + '?_=' + new Date().getTime());
+        if (!response.ok) throw new Error('Errore nel recupero dati dalle webcam');
+        const data = await response.json();
+
+        document.getElementById('sheet-timestamp').innerText = data.timestamp ? `Updated: ${data.timestamp}` : 'Updated: --';
+
+        const spots = [
+          { id: 'torbole', key: 'torbole' },
+          { id: 'limone', key: 'caporeamol' },
+          { id: 'campagnola', key: 'malcesinenord' },
+          { id: 'malcesine', key: 'malcesine' },
+          { id: 'campione', key: 'campione' }
+        ];
+
+        spots.forEach(spot => {
+          const spotData = data[spot.key] || { dir: '--', base: '--', raffica: '--', temp: '--' };
+          document.getElementById(`${spot.id}-temp`).innerText = spotData.temp || '--';
+          document.getElementById(`${spot.id}-dir`).innerText = spotData.dir || '--';
+          document.getElementById(`${spot.id}-base`).innerText = spotData.base || '--';
+          document.getElementById(`${spot.id}-raffica`).innerText = spotData.raffica || '--';
+        });
+
+      } catch (err) {
+        console.error('Impossibile aggiornare i dati delle località:', err);
+      }
+    }
+
+    function setupCustomLegend(chart) {
+      const legendContainer = document.getElementById('customLegend');
+      legendContainer.innerHTML = '';
+      
+      const sunriseBtn = document.createElement('div');
+      sunriseBtn.className = 'legend-btn';
+      sunriseBtn.style.opacity = showSunriseLines ? '1' : '0.4';
+      const sBox = document.createElement('span');
+      sBox.style.width = '10px';
+      sBox.style.height = '10px';
+      sBox.style.display = 'inline-block';
+      sBox.style.borderRadius = '2px';
+      sBox.style.backgroundColor = '#eab308';
+      const sText = document.createElement('span');
+      sText.innerText = 'Sunrise';
+      sunriseBtn.appendChild(sBox);
+      sunriseBtn.appendChild(sText);
+      sunriseBtn.onclick = () => {
+        showSunriseLines = !showSunriseLines;
+        sunriseBtn.style.opacity = showSunriseLines ? '1' : '0.4';
+        chart.update();
+      };
+      legendContainer.appendChild(sunriseBtn);
+
+      const sunsetBtn = document.createElement('div');
+      sunsetBtn.className = 'legend-btn';
+      sunsetBtn.style.opacity = showSunsetLines ? '1' : '0.4';
+      const suBox = document.createElement('span');
+      suBox.style.width = '10px';
+      suBox.style.height = '10px';
+      suBox.style.display = 'inline-block';
+      suBox.style.borderRadius = '2px';
+      suBox.style.backgroundColor = '#f97316';
+      const suText = document.createElement('span');
+      suText.innerText = 'Sunset';
+      sunsetBtn.appendChild(suBox);
+      sunsetBtn.appendChild(suText);
+      sunsetBtn.onclick = () => {
+        showSunsetLines = !showSunsetLines;
+        sunsetBtn.style.opacity = showSunsetLines ? '1' : '0.4';
+        chart.update();
+      };
+      legendContainer.appendChild(sunsetBtn);
+
+      chart.data.datasets.forEach((dataset, index) => {
+        const item = document.createElement('div');
+        item.className = 'legend-btn';
+        const box = document.createElement('span');
+        box.style.width = '10px';
+        box.style.height = '10px';
+        box.style.display = 'inline-block';
+        box.style.borderRadius = '2px';
+        box.style.backgroundColor = dataset.borderColor;
+        const text = document.createElement('span');
+        text.innerText = dataset.label;
+        item.appendChild(box);
+        item.appendChild(text);
+        item.onclick = () => {
+          const meta = chart.getDatasetMeta(index);
+          meta.hidden = meta.hidden === null ? !chart.data.datasets[index].hidden : null;
+          chart.update();
+          item.style.opacity = meta.hidden ? '0.4' : '1';
+        };
+        legendContainer.appendChild(item);
+      });
+    }
+
+    async function loadChartData() {
+      try {
+        const responseMain = await fetch(API_URL + '?_=' + new Date().getTime());
+        if (!responseMain.ok) throw new Error('Main server network error');
+        
+        const jsonMain = await responseMain.json();
+        
+        let realDeltaArray = [];
+        if (jsonMain.real_delta) {
+          realDeltaArray = Array.isArray(jsonMain.real_delta) ? jsonMain.real_delta : (jsonMain.real_delta.data || []);
+        }
+
+        let realDeltaMap = {};
+        realDeltaArray.forEach(item => {
+          if (item && item.time) {
+            const tDate = new Date(item.time);
+            if (!isNaN(tDate.getTime())) {
+              realDeltaMap[tDate.getTime()] = item.real_delta;
+              const tDateHour = new Date(tDate);
+              tDateHour.setMinutes(0, 0, 0);
+              realDeltaMap[tDateHour.getTime()] = item.real_delta;
+            }
+          }
+        });
+
+        const ghedi = jsonMain.ghedi_e_bolzano ? jsonMain.ghedi_e_bolzano[0] : null;
+        const bolzano = jsonMain.ghedi_e_bolzano ? jsonMain.ghedi_e_bolzano[1] : null;
+
+        if (ghedi && bolzano) {
+          const times = ghedi.hourly.time;
+          globalRawData = times.map((t, idx) => {
+            const dateObj = new Date(t);
+            const exactTimeKey = dateObj.getTime();
+            dateObj.setMinutes(0, 0, 0);
+            const hourTimeKey = dateObj.getTime();
+
+            const realVal = realDeltaMap[exactTimeKey] !== undefined ? realDeltaMap[exactTimeKey] : (realDeltaMap[hourTimeKey] !== undefined ? realDeltaMap[hourTimeKey] : null);
+
+            const ghediValSwiss = ghedi.hourly.pressure_msl_meteoswiss_icon_ch1 ? ghedi.hourly.pressure_msl_meteoswiss_icon_ch1[idx] : null;
+            const bolzanoValSwiss = bolzano.hourly.pressure_msl_meteoswiss_icon_ch1 ? bolzano.hourly.pressure_msl_meteoswiss_icon_ch1[idx] : null;
+            const ms = (ghediValSwiss !== null && ghediValSwiss !== undefined && bolzanoValSwiss !== null && bolzanoValSwiss !== undefined) ? parseFloat((ghediValSwiss - bolzanoValSwiss).toFixed(2)) : null;
+
+            const ghediValFrance = ghedi.hourly.pressure_msl_meteofrance_seamless ? ghedi.hourly.pressure_msl_meteofrance_seamless[idx] : null;
+            const bolzanoValFrance = bolzano.hourly.pressure_msl_meteofrance_seamless ? bolzano.hourly.pressure_msl_meteofrance_seamless[idx] : null;
+            const mf = (ghediValFrance !== null && ghediValFrance !== undefined && bolzanoValFrance !== null && bolzanoValFrance !== undefined) ? parseFloat((ghediValFrance - bolzanoValFrance).toFixed(2)) : null;
+
+            const ghediValIcon = ghedi.hourly.pressure_msl_icon_seamless ? ghedi.hourly.pressure_msl_icon_seamless[idx] : null;
+            const bolzanoValIcon = bolzano.hourly.pressure_msl_icon_seamless ? bolzano.hourly.pressure_msl_icon_seamless[idx] : null;
+            const icon = (ghediValIcon !== null && ghediValIcon !== undefined && bolzanoValIcon !== null && bolzanoValIcon !== undefined) ? parseFloat((ghediValIcon - bolzanoValIcon).toFixed(2)) : null;
+
+            const ghediValGfs = ghedi.hourly.pressure_msl_gfs_seamless ? ghedi.hourly.pressure_msl_gfs_seamless[idx] : null;
+            const bolzanoValGfs = bolzano.hourly.pressure_msl_gfs_seamless ? bolzano.hourly.pressure_msl_gfs_seamless[idx] : null;
+            const gfs = (ghediValGfs !== null && ghediValGfs !== undefined && bolzanoValGfs !== null && bolzanoValGfs !== undefined) ? parseFloat((ghediValGfs - bolzanoValGfs).toFixed(2)) : null;
+
+            return {
+              time: t,
+              real_delta: realVal,
+              meteoswiss_icon_ch1: ms,
+              meteofrance_seamless: mf,
+              icon_seamless: icon,
+              gfs_seamless: gfs
+            };
+          });
+        } else {
+          globalRawData = [];
+        }
+
+        if (jsonMain.weather_info && jsonMain.weather_info.hourly) {
+          const omJson = jsonMain.weather_info;
+          globalOpenMeteoData = {
+            times: omJson.hourly.time.map(t => new Date(t).getTime()),
+            temps: omJson.hourly.temperature_2m,
+            codes: omJson.hourly.weather_code
+          };
+
+          if (omJson.daily && omJson.daily.sunrise && omJson.daily.sunset) {
+            globalSunData = {
+              sunrises: omJson.daily.sunrise.map(t => new Date(t).getTime()),
+              sunsets: omJson.daily.sunset.map(t => new Date(t).getTime())
+            };
+          }
+        }
+
+        if (!globalRawData || globalRawData.length === 0) {
+          document.getElementById('loading').innerText = 'Nessun dato disponibile.';
+          return;
+        }
+        document.getElementById('loading').style.display = 'none';
+        updateHeaderLatestInfo(realDeltaArray);
+
+        if (chartInstance) chartInstance.destroy();
+
+        const nowTime = new Date().getTime();
+        const baseMinDate = new Date(nowTime - (24 * 60 * 60 * 1000));
+        baseMinDate.setMinutes(0, 0, 0);
+        baseMinDate.setHours(Math.floor(baseMinDate.getHours() / 3) * 3);
+        const minTime = baseMinDate.getTime();
+
+        const baseMaxDate = new Date(nowTime + (120 * 60 * 60 * 1000));
+        baseMaxDate.setMinutes(0, 0, 0);
+        let remHours = baseMaxDate.getHours() % 3;
+        if (remHours !== 0) {
+          baseMaxDate.setHours(baseMaxDate.getHours() + (3 - remHours));
+        }
+        let maxTime = baseMaxDate.getTime();
+
+        const fixed3hTicks = [];
+        let curr = new Date(minTime);
+        while (curr.getTime() <= maxTime) {
+          fixed3hTicks.push(curr.getTime());
+          curr.setHours(curr.getHours() + 3);
+        }
+        if (fixed3hTicks.length > 0) {
+          maxTime = fixed3hTicks[fixed3hTicks.length - 1];
+        }
+
+        const realDelta = [], meteoSwiss = [], meteoFrance = [], iconSeamless = [], gfsSeamless = [];
+        let maxAbsoluteValue = 0;
+
+        realDeltaArray.forEach(item => {
+          if (item && item.time && item.real_delta !== null && item.real_delta !== undefined) {
+            const t = new Date(item.time).getTime();
+            if (!isNaN(t) && t >= minTime && t <= maxTime) {
+              if (Math.abs(item.real_delta) > maxAbsoluteValue) {
+                maxAbsoluteValue = Math.abs(item.real_delta);
+              }
+              realDelta.push({ x: t, y: item.real_delta });
+            }
+          }
+        });
+        realDelta.sort((a, b) => a.x - b.x);
+
+        globalRawData.forEach(item => {
+          const t = new Date(item.time).getTime();
+          if (t >= minTime && t <= maxTime) {
+            [item.meteoswiss_icon_ch1, item.meteofrance_seamless, item.icon_seamless, item.gfs_seamless].forEach(val => {
+              if (val !== null && val !== undefined && Math.abs(val) > maxAbsoluteValue) {
+                maxAbsoluteValue = Math.abs(val);
+              }
+            });
+            if (item.meteoswiss_icon_ch1 !== null && item.meteoswiss_icon_ch1 !== undefined) meteoSwiss.push({ x: t, y: item.meteoswiss_icon_ch1 });
+            if (item.meteofrance_seamless !== null && item.meteofrance_seamless !== undefined) meteoFrance.push({ x: t, y: item.meteofrance_seamless });
+            if (item.icon_seamless !== null && item.icon_seamless !== undefined) iconSeamless.push({ x: t, y: item.icon_seamless });
+            if (item.gfs_seamless !== null && item.gfs_seamless !== undefined) gfsSeamless.push({ x: t, y: item.gfs_seamless });
+          }
+        });
+
+        let limitY = maxAbsoluteValue > 8 ? 10 : (maxAbsoluteValue > 6 ? 8 : 6);
+
+        const customGridPlugin = {
+          id: 'customGrid',
+          beforeDraw: (chart) => {
+            const xAxis = chart.scales.x, yAxis = chart.scales.y, ctx = chart.ctx;
+            ctx.save();
+            for (let i = 0; i < fixed3hTicks.length - 1; i++) {
+              const startTs = fixed3hTicks[i];
+              const endTs = fixed3hTicks[i + 1];
+              const startX = xAxis.getPixelForValue(startTs);
+              const endX = xAxis.getPixelForValue(endTs);
+              if (endX >= xAxis.left && startX <= xAxis.right) {
+                const dateObj = new Date(startTs);
+                const dayOfYear = Math.floor(Date.UTC(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate()) / (24 * 60 * 60 * 1000));
+                ctx.fillStyle = (dayOfYear % 2 === 0) ? 'rgba(248, 250, 252, 0.7)' : 'rgba(241, 245, 249, 1)';
+                ctx.fillRect(Math.max(startX, xAxis.left), yAxis.top, Math.min(endX, xAxis.right) - Math.max(startX, xAxis.left), yAxis.bottom - yAxis.top);
+              }
+            }
+            fixed3hTicks.forEach(ts => {
+              const date = new Date(ts);
+              const xPixel = xAxis.getPixelForValue(ts);
+              if (xPixel >= xAxis.left - 15 && xPixel <= xAxis.right + 15) {
+                if (date.getHours() === 0) {
+                  ctx.beginPath();
+                  ctx.moveTo(xPixel, yAxis.top);
+                  ctx.lineTo(xPixel, yAxis.bottom);
+                  ctx.lineWidth = 1.2;
+                  ctx.strokeStyle = '#94a3b8';
+                  ctx.setLineDash([4, 4]);
+                  ctx.stroke();
+                  ctx.setLineDash([]);
+                  ctx.fillStyle = '#0f172a';
+                  ctx.font = 'bold 12px sans-serif';
+                  const textX = (xPixel > xAxis.right - 50) ? xAxis.right - 55 : xPixel + 6;
+                  ctx.fillText(date.toLocaleString('en-US', { weekday: 'short', day: 'numeric' }), textX, yAxis.top + 14);
+                } else {
+                  ctx.beginPath();
+                  ctx.moveTo(xPixel, yAxis.top);
+                  ctx.lineTo(xPixel, yAxis.bottom);
+                  ctx.lineWidth = 1;
+                  ctx.strokeStyle = '#e2e8f0';
+                  ctx.stroke();
+                }
+              }
+            });
+            ctx.restore();
+          }
+        };
+
+        const axisLabelsPlugin = {
+          id: 'axisLabels',
+          afterDraw: (chart) => {
+            const xAxis = chart.scales.x, yAxis = chart.scales.y, ctx = chart.ctx;
+            ctx.save();
+            const xPos = xAxis.left + 5;
+            const yPlus2 = yAxis.getPixelForValue(2);
+            ctx.fillStyle = '#525252';
+            ctx.fillRect(xPos - 4, yPlus2 - 16, 44, 18);
+            ctx.strokeStyle = '#525252';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(xPos - 4, yPlus2 - 16, 44, 18);
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 11px sans-serif';
+            ctx.fillText('Ora', xPos + 8, yPlus2 - 3);
+
+            const yMinus2 = yAxis.getPixelForValue(-2);
+            ctx.fillStyle = '#525252';
+            ctx.fillRect(xPos - 4, yMinus2 - 16, 48, 18);
+            ctx.strokeStyle = '#525252';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(xPos - 4, yMinus2 - 16, 48, 18);
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 11px sans-serif';
+            ctx.fillText('Pelèr', xPos + 5, yMinus2 - 3);
+            ctx.restore();
+          }
+        };
+
+        const sunLinesPlugin = {
+          id: 'sunLines',
+          afterDraw: (chart) => {
+            const xAxis = chart.scales.x, yAxis = chart.scales.y, ctx = chart.ctx;
+            ctx.save();
+
+            if (showSunriseLines && globalSunData.sunrises) {
+              globalSunData.sunrises.forEach(ts => {
+                const xPixel = xAxis.getPixelForValue(ts);
+                if (xPixel >= xAxis.left && xPixel <= xAxis.right) {
+                  ctx.beginPath();
+                  ctx.moveTo(xPixel, yAxis.top);
+                  ctx.lineTo(xPixel, yAxis.bottom);
+                  ctx.lineWidth = 1.5;
+                  ctx.strokeStyle = 'rgba(234, 179, 8, 0.85)';
+                  ctx.setLineDash([4, 4]);
+                  ctx.stroke();
+                  ctx.setLineDash([]);
+                  
+                  ctx.fillStyle = '#ca8a04';
+                  ctx.font = '600 10px sans-serif';
+                  const timeLabel = new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+                  ctx.fillText(`☀️ ${timeLabel}`, xPixel + 4, yAxis.bottom - 6);
+                }
+              });
+            }
+
+            if (showSunsetLines && globalSunData.sunsets) {
+              globalSunData.sunsets.forEach(ts => {
+                const xPixel = xAxis.getPixelForValue(ts);
+                if (xPixel >= xAxis.left && xPixel <= xAxis.right) {
+                  ctx.beginPath();
+                  ctx.moveTo(xPixel, yAxis.top);
+                  ctx.lineTo(xPixel, yAxis.bottom);
+                  ctx.lineWidth = 1.5;
+                  ctx.strokeStyle = 'rgba(249, 115, 22, 0.85)';
+                  ctx.setLineDash([4, 4]);
+                  ctx.stroke();
+                  ctx.setLineDash([]);
+
+                  ctx.fillStyle = '#c2410c';
+                  ctx.font = '600 10px sans-serif';
+                  const timeLabel = new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+                  ctx.fillText(`🌙 ${timeLabel}`, xPixel + 4, yAxis.bottom - 6);
+                }
+              });
+            }
+
+            ctx.restore();
+          }
+        };
+
+        const nowLinePlugin = {
+          id: 'nowLine',
+          afterDraw: (chart) => {
+            const xAxis = chart.scales.x, yAxis = chart.scales.y;
+            const xPixel = xAxis.getPixelForValue(nowTime);
+            if (xPixel >= xAxis.left && xPixel <= xAxis.right) {
+              const ctx = chart.ctx;
+              ctx.save();
+              ctx.beginPath();
+              ctx.moveTo(xPixel, yAxis.top);
+              ctx.lineTo(xPixel, yAxis.bottom);
+              ctx.lineWidth = 2.5;
+              ctx.strokeStyle = '#ef4444';
+              ctx.setLineDash([4, 4]);
+              ctx.stroke();
+              ctx.fillStyle = '#ef4444';
+              ctx.fillRect(xPixel - 18, yAxis.top - 2, 36, 16);
+              ctx.fillStyle = '#ffffff';
+              ctx.font = 'bold 11px sans-serif';
+              ctx.fillText('NOW', xPixel - 14, yAxis.top + 10);
+              ctx.restore();
+            }
+          }
+        };
+
+        const alignUIElementsPlugin = {
+          id: 'alignUIElements',
+          afterLayout: (chart) => {
+            renderHourlyInfoBar(globalRawData, chart, fixed3hTicks);
+          }
+        };
+
+        const ctx = document.getElementById('timeChart').getContext('2d');
+        chartInstance = new Chart(ctx, {
+          type: 'line',
+          data: {
+            datasets: [
+              { label: 'Live Delta P', data: realDelta, borderColor: '#0284c7', backgroundColor: '#0284c7', borderWidth: 4, tension: 0.2, spanGaps: false },
+              { label: 'MeteoSwiss ICON CH1', data: meteoSwiss, borderColor: 'rgba(234, 179, 8, 0.85)', borderWidth: 1.0, tension: 0.2, spanGaps: false },
+              { label: 'MeteoFrance', data: meteoFrance, borderColor: 'rgba(16, 185, 129, 0.85)', borderWidth: 1.0, tension: 0.2, spanGaps: false },
+              { label: 'ICON Seamless', data: iconSeamless, borderColor: 'rgba(139, 92, 246, 0.85)', borderWidth: 1.0, tension: 0.2, spanGaps: false },
+              { label: 'GFS Seamless', data: gfsSeamless, borderColor: 'rgba(249, 115, 22, 0.85)', borderWidth: 1.0, tension: 0.2, spanGaps: false }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { intersect: false, mode: 'index' },
+            elements: {
+              point: { radius: 0, hoverRadius: 0 }
+            },
+            plugins: {
+              legend: { display: false },
+              tooltip: { enabled: false }
+            },
+            scales: {
+              x: {
+                type: 'time', min: minTime, max: maxTime,
+                time: { unit: 'hour', stepSize: 3 },
+                afterBuildTicks: (scale) => { scale.ticks = fixed3hTicks.map(val => ({ value: val })); },
+                ticks: {
+                  autoSkip: false,
+                  maxRotation: 0,
+                  font: { size: 12, weight: '600' },
+                  color: '#334155',
+                  callback: (val) => new Date(val).getHours() + 'h'
+                },
+                grid: { display: false }
+              },
+              y: {
+                type: 'linear',
+                position: 'left',
+                min: -limitY, max: limitY,
+                grid: {
+                  color: (c) => c.tick.value === 0 ? '#0f172a' : (Math.abs(c.tick.value) === 2 ? '#64748b' : '#e2e8f0'),
+                  lineWidth: (c) => c.tick.value === 0 ? 2.5 : (Math.abs(c.tick.value) === 2 ? 1.5 : 1)
+                },
+                ticks: {
+                  stepSize: 2,
+                  font: { size: 12, weight: '600' },
+                  color: '#334155',
+                  callback: (val) => {
+                    if (val === 0) return '0 hPa';
+                    const absVal = Math.abs(val);
+                    const sign = val > 0 ? '+' : '-';
+                    return `${sign}${absVal} hPa`;
+                  }
+                },
+                title: { display: true, text: 'Pressure Delta', font: { size: 13, weight: 'bold' }, color: '#0f172a' }
+              },
+              y1: {
+                type: 'linear',
+                position: 'right',
+                min: -limitY, max: limitY,
+                grid: { drawOnChartArea: false },
+                ticks: {
+                  stepSize: 2,
+                  font: { size: 12, weight: '600' },
+                  color: '#334155',
+                  callback: (val) => {
+                    const absVal = Math.abs(val);
+                    const minKn = absVal * 5;
+                    if (minKn === 0) return '0 kn';
+                    const maxKn = minKn + 5;
+                    return `${minKn}-${maxKn} kn`;
+                  }
+                },
+                title: { display: true, text: 'Estimated Wind', font: { size: 13, weight: 'bold' }, color: '#0f172a' }
+              }
+            }
+          },
+          plugins: [customGridPlugin, axisLabelsPlugin, sunLinesPlugin, nowLinePlugin, alignUIElementsPlugin]
+        });
+        setupCustomLegend(chartInstance);
+      } catch (error) {
+        console.error('Critical error:', error);
+        document.getElementById('loading').innerText = 'Loading data error. Refresh the page';
+        document.getElementById('loading').style.color = '#ef4444';
+      }
+    }
+
+    function renderHourlyInfoBar(rawData, chart, ticks) {
+      const xAxis = chart.scales.x;
+      if (!xAxis) return;
+      const container = document.getElementById('hourlyInfoBar');
+      const sidebarHtml = `
+        <div class="hourly-labels-sidebar">
+          <span class="row-label"> </span>
+          <span class="row-label">Forecast<br>Rating</span>
+          <span class="row-label">Temp °C</span>
+          <span class="row-label">Weather</span>
+        </div>
+      `;
+      container.innerHTML = sidebarHtml;
+      for (let i = 0; i < ticks.length - 1; i++) {
+        let startT = ticks[i];
+        let endT = ticks[i + 1];
+        let leftPixel = xAxis.getPixelForValue(startT);
+        let rightPixel = xAxis.getPixelForValue(endT);
+        let width = rightPixel - leftPixel;
+        if (width <= 2) continue;
+        let dateObj = new Date(startT);
+        let dayOfYear = Math.floor(Date.UTC(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate()) / (24 * 60 * 60 * 1000));
+        let colBgColor = (dayOfYear % 2 === 0) ? 'rgba(248, 250, 252, 0.7)' : 'rgba(241, 245, 249, 1)';
+        let matchedItem = rawData.find(item => Math.abs(new Date(item.time).getTime() - startT) < 90 * 60 * 1000);
+        let activeStars = 0;
+        if (matchedItem) {
+          let modelKeys = ['meteoswiss_icon_ch1', 'meteofrance_seamless', 'icon_seamless', 'gfs_seamless'];
+          let vals = [];
+          modelKeys.forEach(k => { if (matchedItem[k] !== null && matchedItem[k] !== undefined) vals.push(matchedItem[k]); });
+          if (vals.length > 0) {
+            let avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+            activeStars = getActiveStarsCount(avg);
+          }
+        }
+        let tempText = '--°';
+        let weatherIcon = '—';
+        let omIndex = globalOpenMeteoData.times.findIndex(t => Math.abs(t - startT) < 90 * 60 * 1000);
+        if (omIndex !== -1) {
+          let tempVal = globalOpenMeteoData.temps[omIndex];
+          if (tempVal !== null && tempVal !== undefined) {
+            tempText = `${Math.round(tempVal)}°`;
+          }
+          let codeVal = globalOpenMeteoData.codes[omIndex];
+          weatherIcon = getWeatherEmoji(codeVal);
+        }
+        const col = document.createElement('div');
+        col.className = 'hourly-col-wrapper';
+        col.style.left = `${leftPixel}px`;
+        col.style.width = `${width}px`;
+        col.style.backgroundColor = colBgColor;
+        col.innerHTML = `
+          ${getVerticalHourlyStarsHTML(activeStars)}
+          <div class="hourly-temp">${tempText}</div>
+          <div class="hourly-weather-icon">${weatherIcon}</div>
+        `;
+        container.appendChild(col);
+      }
+    }
+
+    function startCountdown(targetTimestamp) {
+      nextRefreshTimestamp = targetTimestamp;
+      if (countdownInterval) clearInterval(countdownInterval);
+
+      countdownInterval = setInterval(() => {
+        const now = new Date().getTime();
+        const diff = nextRefreshTimestamp - now;
+
+        if (diff <= 0) {
+          document.getElementById('valCountdown').innerText = 'UPDATING...';
+          clearInterval(countdownInterval);
+          return;
+        }
+
+        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+        const minStr = String(minutes).padStart(2, '0');
+        const secStr = String(seconds).padStart(2, '0');
+
+        document.getElementById('valCountdown').innerText = `${minStr}:${secStr}`;
+      }, 1000);
+    }
+
+    function scheduleNextRefresh() {
+      const now = new Date();
+      const currentMinute = now.getMinutes();
+      const currentSecond = now.getSeconds();
+      const currentMs = now.getMilliseconds();
+
+      const targetSlots = [
+        { m: 1, s: 00 },
+        { m: 16, s: 00 },
+        { m: 31, s: 00 },
+        { m: 46, s: 00 }
+      ];
+
+      const currentTotalSeconds = (currentMinute * 60) + currentSecond + (currentMs / 1000);
+      let nextSlotSeconds = null;
+
+      for (let slot of targetSlots) {
+        let slotTotalSeconds = (slot.m * 60) + slot.s;
+        if (slotTotalSeconds > currentTotalSeconds) {
+          nextSlotSeconds = slotTotalSeconds;
+          break;
+        }
+      }
+
+      let delayMs = 0;
+      let targetTimeMs = 0;
+      if (nextSlotSeconds !== null) {
+        delayMs = (nextSlotSeconds - currentTotalSeconds) * 1000;
+        targetTimeMs = now.getTime() + delayMs;
+      } else {
+        let slotTotalSecondsNextHour = (60 * 60) + (targetSlots[0].m * 60) + targetSlots[0].s;
+        delayMs = (slotTotalSecondsNextHour - currentTotalSeconds) * 1000;
+        targetTimeMs = now.getTime() + delayMs;
+      }
+
+      startCountdown(targetTimeMs);
+
+      setTimeout(() => {
+        loadChartData();
+        loadSpotData();
+        scheduleNextRefresh();
+      }, delayMs);
+    }
+
+    loadChartData();
+    loadSpotData();
+    scheduleNextRefresh();
+
+    setInterval(loadSpotData, 60000);
+  </script>
+</body>
+</html>
