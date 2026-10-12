@@ -176,7 +176,7 @@
       display: flex;
       flex-direction: column;
       justify-content: space-around;
-      padding: 8px 0px 8px 4px;
+      padding: 8px 0px 5px 4px;
       z-index: 5;
     }
     .row-label {
@@ -216,10 +216,13 @@
     .star-off {
       color: #cbd5e1;
     }
-    .hourly-temp {
-      font-size: 0.75rem;
-      font-weight: 700;
-      color: #334155;
+    .hourly-temp-badge {
+      font-size: 0.72rem;
+      font-weight: 800;
+      padding: 2px 5px;
+      border-radius: 4px;
+      display: inline-block;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.06);
     }
     .hourly-weather-icon {
       font-size: 1.15rem;
@@ -348,7 +351,7 @@
     <div class="hourly-info-bar" id="hourlyInfoBar">
       <div class="hourly-labels-sidebar">
         <span class="row-label"> </span>
-        <span class="row-label">Rating</span>
+        <span class="row-label">Wind<br>Rating</span>
         <span class="row-label">Temp °C</span>
         <span class="row-label">Weather</span>
       </div>
@@ -469,6 +472,20 @@
       }
       html += '</div>';
       return html;
+    }
+
+    // Scala termica tarata da 0°C a 35°C per il badge della temperatura
+    function getTempBadgeStyle(temp) {
+      if (temp === null || temp === undefined || isNaN(temp)) {
+        return 'background-color: #e2e8f0; color: #64748b;';
+      }
+      // Limitiamo il range tra 0 e 35
+      let t = Math.max(0, Math.min(35, temp));
+      let ratio = t / 35; // da 0.0 (0°C) a 1.0 (35°C)
+      
+      // HSL: da 220 (blu freddo intenso) passando per verde/giallo fino a 0 (rosso caldo)
+      let hue = (1 - ratio) * 220; 
+      return `background-color: hsl(${hue}, 85%, 84%); color: hsl(${hue}, 95%, 22%);`;
     }
 
     function getWeatherEmoji(code) {
@@ -1054,7 +1071,8 @@
           }
         }
         
-        // Media sulle 3 ore per temperatura e meteo
+        // Temperatura e badge con scala 0°-35°C
+        let tempValue = null;
         let tempText = '--°';
         let weatherIcon = '—';
         let omMatchedIndices = [];
@@ -1066,11 +1084,14 @@
           let validTemps = omMatchedIndices.map(idx => globalOpenMeteoData.temps[idx]).filter(v => v !== null && v !== undefined);
           if (validTemps.length > 0) {
             let avgTemp = validTemps.reduce((a, b) => a + b, 0) / validTemps.length;
-            tempText = `${Math.round(avgTemp)}°`;
+            tempValue = Math.round(avgTemp);
+            tempText = `${tempValue}°`;
           }
           let midIdx = omMatchedIndices[Math.floor(omMatchedIndices.length / 2)];
           weatherIcon = getWeatherEmoji(globalOpenMeteoData.codes[midIdx]);
         }
+
+        let badgeStyle = getTempBadgeStyle(tempValue);
 
         const col = document.createElement('div');
         col.className = 'hourly-col-wrapper';
@@ -1079,7 +1100,7 @@
         col.style.backgroundColor = colBgColor;
         col.innerHTML = `
           ${getVerticalHourlyStarsHTML(activeStars, isPast)}
-          <div class="hourly-temp">${tempText}</div>
+          <div><span class="hourly-temp-badge" style="${badgeStyle}">${tempText}</span></div>
           <div class="hourly-weather-icon">${weatherIcon}</div>
         `;
         container.appendChild(col);
