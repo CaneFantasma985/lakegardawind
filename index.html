@@ -625,6 +625,9 @@
           realDeltaArray = Array.isArray(jsonMain.real_delta) ? jsonMain.real_delta : (jsonMain.real_delta.data || []);
         }
 
+        // AGGIORNAMENTO AUTOMATICO DEL BOX LAST UPDATE AD OGNI FETCH
+        updateHeaderLatestInfo(realDeltaArray);
+
         let realDeltaMap = {};
         realDeltaArray.forEach(item => {
           if (item && item.time) {
@@ -701,7 +704,6 @@
           return;
         }
         document.getElementById('loading').style.display = 'none';
-        updateHeaderLatestInfo(realDeltaArray);
 
         if (chartInstance) chartInstance.destroy();
 
