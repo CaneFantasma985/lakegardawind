@@ -479,11 +479,8 @@
       if (temp === null || temp === undefined || isNaN(temp)) {
         return 'background-color: #e2e8f0; color: #64748b;';
       }
-      // Limitiamo il range tra 0 e 35
       let t = Math.max(0, Math.min(35, temp));
-      let ratio = t / 35; // da 0.0 (0°C) a 1.0 (35°C)
-      
-      // HSL: da 220 (blu freddo intenso) passando per verde/giallo fino a 0 (rosso caldo)
+      let ratio = t / 35; 
       let hue = (1 - ratio) * 220; 
       return `background-color: hsl(${hue}, 85%, 84%); color: hsl(${hue}, 95%, 22%);`;
     }
@@ -503,9 +500,16 @@
     }
 
     function updateHeaderLatestInfo(realDeltaArray) {
+      const el = document.getElementById('valDeltaReale');
+      if (!realDeltaArray || !Array.isArray(realDeltaArray) || realDeltaArray.length === 0) {
+        el.innerText = 'No Data';
+        return;
+      }
+
       const validItems = realDeltaArray
-        .filter(item => item.real_delta !== null && item.real_delta !== undefined)
+        .filter(item => item && item.real_delta !== null && item.real_delta !== undefined && !isNaN(item.real_delta))
         .sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
+
       if (validItems.length > 0) {
         const latest = validItems[validItems.length - 1];
         const dateObj = new Date(latest.time);
@@ -513,7 +517,9 @@
         const dayStr = dateObj.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
         const val = latest.real_delta;
         const sign = val > 0 ? '+' : '';
-        document.getElementById('valDeltaReale').innerText = `${sign}${val} hPa (${dayStr} ${timeStr})`;
+        el.innerText = `${sign}${val} hPa (${dayStr} ${timeStr})`;
+      } else {
+        el.innerText = 'Syncing...';
       }
     }
 
@@ -625,7 +631,7 @@
           realDeltaArray = Array.isArray(jsonMain.real_delta) ? jsonMain.real_delta : (jsonMain.real_delta.data || []);
         }
 
-        // AGGIORNAMENTO AUTOMATICO DEL BOX LAST UPDATE AD OGNI FETCH
+        // AGGIORNAMENTO FORZATO DEL BOX LAST UPDATE AD OGNI FETCH
         updateHeaderLatestInfo(realDeltaArray);
 
         let realDeltaMap = {};
@@ -1073,7 +1079,6 @@
           }
         }
         
-        // Temperatura e badge con scala 0°-35°C
         let tempValue = null;
         let tempText = '--°';
         let weatherIcon = '—';
