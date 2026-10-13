@@ -631,7 +631,6 @@
           realDeltaArray = Array.isArray(jsonMain.real_delta) ? jsonMain.real_delta : (jsonMain.real_delta.data || []);
         }
 
-        // AGGIORNAMENTO FORZATO DEL BOX LAST UPDATE AD OGNI FETCH
         updateHeaderLatestInfo(realDeltaArray);
 
         let realDeltaMap = {};
@@ -800,10 +799,13 @@
                   ctx.setLineDash([4, 4]);
                   ctx.stroke();
                   ctx.setLineDash([]);
-                  ctx.fillStyle = '#0f172a';
-                  ctx.font = 'bold 12px sans-serif';
-                  const textX = (xPixel > xAxis.right - 50) ? xAxis.right - 55 : xPixel + 6;
-                  ctx.fillText(date.toLocaleString('en-US', { weekday: 'short', day: 'numeric' }), textX, yAxis.top + 14);
+                  
+                  // Mostra la scritta del giorno SOLO se c'è abbastanza spazio a destra
+                  if (xPixel <= xAxis.right - 55) {
+                    ctx.fillStyle = '#0f172a';
+                    ctx.font = 'bold 12px sans-serif';
+                    ctx.fillText(date.toLocaleString('en-US', { weekday: 'short', day: 'numeric' }), xPixel + 6, yAxis.top + 14);
+                  }
                 } else {
                   ctx.beginPath();
                   ctx.moveTo(xPixel, yAxis.top);
