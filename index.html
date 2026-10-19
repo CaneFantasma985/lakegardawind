@@ -367,7 +367,7 @@
         
         <!-- 1. Torbole -->
         <div class="spot-section">
-          <span class="spot-label">Torbole ⛵</span>
+          <span class="spot-label">Torbole</span>
           <div class="spot-data-row">
             <div class="spot-sub-item"><span class="spot-sub-label">🌡️</span><span class="spot-sub-value" id="torbole-temp">--</span></div>
             <div class="spot-sub-item"><span class="spot-sub-label">🧭</span><span class="spot-sub-value" id="torbole-dir">--</span></div>
@@ -378,7 +378,7 @@
 
         <!-- 2. Limone -->
         <div class="spot-section">
-          <span class="spot-label">Limone 🍋</span>
+          <span class="spot-label">Limone</span>
           <div class="spot-data-row">
             <div class="spot-sub-item"><span class="spot-sub-label">🌡️</span><span class="spot-sub-value" id="limone-temp">--</span></div>
             <div class="spot-sub-item"><span class="spot-sub-label">🧭</span><span class="spot-sub-value" id="limone-dir">--</span></div>
@@ -389,7 +389,7 @@
 
         <!-- 3. Campagnola -->
         <div class="spot-section">
-          <span class="spot-label">Campagnola 🚀</span>
+          <span class="spot-label">Campagnola</span>
           <div class="spot-data-row">
             <div class="spot-sub-item"><span class="spot-sub-label">🌡️</span><span class="spot-sub-value" id="campagnola-temp">--</span></div>
             <div class="spot-sub-item"><span class="spot-sub-label">🧭</span><span class="spot-sub-value" id="campagnola-dir">--</span></div>
@@ -400,7 +400,7 @@
 
         <!-- 4. Malcesine -->
         <div class="spot-section">
-          <span class="spot-label">Malcesine 🅿️</span>
+          <span class="spot-label">Malcesine</span>
           <div class="spot-data-row">
             <div class="spot-sub-item"><span class="spot-sub-label">🌡️</span><span class="spot-sub-value" id="malcesine-temp">--</span></div>
             <div class="spot-sub-item"><span class="spot-sub-label">🧭</span><span class="spot-sub-value" id="malcesine-dir">--</span></div>
@@ -411,7 +411,7 @@
 
         <!-- 5. Campione -->
         <div class="spot-section">
-          <span class="spot-label">Campione 🏆</span>
+          <span class="spot-label">Campione</span>
           <div class="spot-data-row">
             <div class="spot-sub-item"><span class="spot-sub-label">🌡️</span><span class="spot-sub-value" id="campione-temp">--</span></div>
             <div class="spot-sub-item"><span class="spot-sub-label">🧭</span><span class="spot-sub-value" id="campione-dir">--</span></div>
@@ -455,9 +455,9 @@
 
     function getActiveStarsCount(avgVal) {
       const absVal = Math.abs(avgVal);
-      if (absVal >= 3.0) return 3;
-      if (absVal >= 2.0) return 2;
-      if (absVal >= 1.0) return 1;
+      if (absVal >= 3.5) return 3;
+      if (absVal >= 2.5) return 2;
+      if (absVal >= 1.5) return 1;
       return 0;
     }
 
@@ -800,7 +800,6 @@
                   ctx.stroke();
                   ctx.setLineDash([]);
                   
-                  // Mostra la scritta del giorno SOLO se c'è abbastanza spazio a destra
                   if (xPixel <= xAxis.right - 55) {
                     ctx.fillStyle = '#0f172a';
                     ctx.font = 'bold 12px sans-serif';
@@ -1002,10 +1001,9 @@
                   color: '#334155',
                   callback: (val) => {
                     const absVal = Math.abs(val);
-                    const minKn = absVal * 5;
-                    if (minKn === 0) return '0 kn';
-                    const maxKn = minKn + 5;
-                    return `${minKn}-${maxKn} kn`;
+                    if (absVal === 0) return '0 kn';
+                    const kn = Math.round(absVal * 7.5);
+                    return `${kn} kn`;
                   }
                 },
                 title: { display: true, text: 'Estimated Wind', font: { size: 13, weight: 'bold' }, color: '#0f172a' }
