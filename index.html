@@ -217,7 +217,7 @@
       color: #cbd5e1;
     }
     .hourly-temp-badge {
-      font-size: 0.70rem;
+      font-size: 0.72rem;
       font-weight: 800;
       padding: 2px 5px;
       border-radius: 4px;
@@ -1080,7 +1080,7 @@
         }
         
         let tempValue = null;
-        let tempText = '--°';
+        let tempText = '--';
         let weatherIcon = '—';
         let omMatchedIndices = [];
         globalOpenMeteoData.times.forEach((t, idx) => {
@@ -1092,7 +1092,7 @@
           if (validTemps.length > 0) {
             let avgTemp = validTemps.reduce((a, b) => a + b, 0) / validTemps.length;
             tempValue = Math.round(avgTemp);
-            tempText = `${tempValue}°`;
+            tempText = `${tempValue}`;
           }
           let midIdx = omMatchedIndices[Math.floor(omMatchedIndices.length / 2)];
           weatherIcon = getWeatherEmoji(globalOpenMeteoData.codes[midIdx]);
