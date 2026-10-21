@@ -203,12 +203,10 @@
       line-height: 1.0;
       font-size: 1.1rem;
     }
-    /* Stelline passate (real_delta): CELESTI */
     .star-on-past {
       color: #0284c7;
       text-shadow: 0 1px 2px rgba(0,0,0,0.18);
     }
-    /* Stelline future (modelli previsionali): GIALLE */
     .star-on-future {
       color: #d97706;
       text-shadow: 0 1px 2px rgba(0,0,0,0.18);
@@ -225,9 +223,16 @@
       box-shadow: 0 1px 2px rgba(0,0,0,0.06);
     }
     .hourly-weather-icon {
-      font-size: 1.15rem;
-      line-height: 1;
-      font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+      width: 22px;
+      height: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .hourly-weather-icon svg {
+      width: 20px;
+      height: 20px;
+      fill: #475569;
     }
     /* Blocco Live Data From The Spots */
     .spots-container-wrapper {
@@ -309,12 +314,10 @@
       padding: 2px 4px;
       border-radius: 4px;
     }
-    /* Sfondo verdino per la base del vento */
     .base-badge {
       background-color: #d1fae5;
       color: #065f46;
     }
-    /* Sfondo rosaceo per la raffica */
     .raffica-badge {
       background-color: #ffe4e6;
       color: #9f1239;
@@ -437,7 +440,6 @@
     let nextRefreshTimestamp = null;
     let countdownInterval = null;
 
-    // Funzione robusta per interpretare le date ISO come ORA LOCALE esatta
     function parseLocalDate(isoString) {
       if (!isoString) return new Date();
       const parts = isoString.split(/[-T:]/);
@@ -474,7 +476,6 @@
       return html;
     }
 
-    // Scala termica tarata da 0°C a 35°C per il badge della temperatura
     function getTempBadgeStyle(temp) {
       if (temp === null || temp === undefined || isNaN(temp)) {
         return 'background-color: #e2e8f0; color: #64748b;';
@@ -485,18 +486,52 @@
       return `background-color: hsl(${hue}, 85%, 84%); color: hsl(${hue}, 95%, 22%);`;
     }
 
-    function getWeatherEmoji(code) {
+    // Libreria di Icone SVG Monocromatiche
+    const svgIcons = {
+      sun: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32l1.41 1.41M2 12h2m16 0h2M6.34 17.66l-1.41 1.41m12.73-12.73l-1.41 1.41" stroke="#475569" stroke-width="2" stroke-linecap="round"/></svg>',
+      moon: '<svg viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" stroke="#475569" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      cloudSun: '<svg viewBox="0 0 24 24"><path d="M12 3v1m0 16v1m-7.07-3.07l.71.71m12.72 0l.71-.71M3 12h1m16 0h1M5.64 6.34l.7.7m11.32 0l.7-.7" stroke="#475569" stroke-width="1.5" stroke-linecap="round"/><path d="M17 18H9a4 4 0 0 1-.38-7.98 5 5 0 0 1 9.76 1.48A3 3 0 0 1 17 18z" fill="#475569"/></svg>',
+      cloudMoon: '<svg viewBox="0 0 24 24"><path d="M17 18H9a4 4 0 0 1-.38-7.98 5 5 0 0 1 9.76 1.48A3 3 0 0 1 17 18z" fill="#475569"/></svg>',
+      cloud: '<svg viewBox="0 0 24 24"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z" fill="#475569"/></svg>',
+      fog: '<svg viewBox="0 0 24 24"><path d="M3 10h18M3 14h18M5 18h14" stroke="#475569" stroke-width="2" stroke-linecap="round"/></svg>',
+      rain: '<svg viewBox="0 0 24 24"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z" fill="#475569"/><path d="M8 22l-1 2m6-2l-1 2m6-2l-1 2" stroke="#475569" stroke-width="2" stroke-linecap="round"/></svg>',
+      snow: '<svg viewBox="0 0 24 24"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z" fill="#475569"/><path d="M10 22v2m4-2v2m-6-4l2 2m4-2l2 2" stroke="#475569" stroke-width="1.5" stroke-linecap="round"/></svg>',
+      storm: '<svg viewBox="0 0 24 24"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z" fill="#475569"/><path d="M13 14l-3 4h4l-3 4" stroke="#475569" stroke-width="1.8" fill="none" stroke-linejoin="round"/></svg>'
+    };
+
+    function isNightTime(timestamp, sunrises, sunsets) {
+      if (!sunrises || !sunsets || sunrises.length === 0 || sunsets.length === 0) {
+        const hour = new Date(timestamp).getHours();
+        return hour < 6 || hour >= 20;
+      }
+      let targetSunrise = sunrises[0];
+      let targetSunset = sunsets[0];
+      let minDiff = Math.abs(timestamp - targetSunrise);
+
+      for (let i = 0; i < sunrises.length; i++) {
+        let diffS = Math.abs(timestamp - sunrises[i]);
+        if (diffS < minDiff) {
+          minDiff = diffS;
+          targetSunrise = sunrises[i];
+          targetSunset = sunsets[i];
+        }
+      }
+      // Se l'orario si trova prima dell'alba o dopo il tramonto del giorno corrispondente
+      return timestamp < targetSunrise || timestamp > targetSunset;
+    }
+
+    function getWeatherSvg(code, timestamp) {
       if (code === undefined || code === null) return '—';
-      if (code === 0) return '☀';
-      if (code === 1 || code === 2) return '⛅';
-      if (code === 3) return '☁️';
-      if (code === 45 || code === 48) return '🌫';
-      if (code >= 51 && code <= 67) return '🌧️';
-      if (code >= 71 && code <= 77) return '🌨️';
-      if (code >= 80 && code <= 82) return '🌦️';
-      if (code >= 85 && code <= 86) return '❄';
-      if (code >= 95) return '⛈️';
-      return '🌤';
+      const night = isNightTime(timestamp, globalSunData.sunrises, globalSunData.sunsets);
+
+      if (code === 0) return night ? svgIcons.moon : svgIcons.sun;
+      if (code === 1 || code === 2) return night ? svgIcons.cloudMoon : svgIcons.cloudSun;
+      if (code === 3) return svgIcons.cloud;
+      if (code === 45 || code === 48) return svgIcons.fog;
+      if (code >= 51 && code <= 67 || (code >= 80 && code <= 82)) return svgIcons.rain;
+      if ((code >= 71 && code <= 77) || (code >= 85 && code <= 86)) return svgIcons.snow;
+      if (code >= 95) return svgIcons.storm;
+      return night ? svgIcons.cloudMoon : svgIcons.cloudSun;
     }
 
     function updateHeaderLatestInfo(realDeltaArray) {
@@ -646,6 +681,22 @@
           }
         });
 
+        if (jsonMain.weather_info && jsonMain.weather_info.hourly) {
+          const omJson = jsonMain.weather_info;
+          globalOpenMeteoData = {
+            times: omJson.hourly.time.map(t => parseLocalDate(t).getTime()),
+            temps: omJson.hourly.temperature_2m,
+            codes: omJson.hourly.weather_code
+          };
+
+          if (omJson.daily && omJson.daily.sunrise && omJson.daily.sunset) {
+            globalSunData = {
+              sunrises: omJson.daily.sunrise.map(t => parseLocalDate(t).getTime()),
+              sunsets: omJson.daily.sunset.map(t => parseLocalDate(t).getTime())
+            };
+          }
+        }
+
         const ghedi = jsonMain.ghedi_e_bolzano ? jsonMain.ghedi_e_bolzano[0] : null;
         const bolzano = jsonMain.ghedi_e_bolzano ? jsonMain.ghedi_e_bolzano[1] : null;
 
@@ -686,22 +737,6 @@
           });
         } else {
           globalRawData = [];
-        }
-
-        if (jsonMain.weather_info && jsonMain.weather_info.hourly) {
-          const omJson = jsonMain.weather_info;
-          globalOpenMeteoData = {
-            times: omJson.hourly.time.map(t => parseLocalDate(t).getTime()),
-            temps: omJson.hourly.temperature_2m,
-            codes: omJson.hourly.weather_code
-          };
-
-          if (omJson.daily && omJson.daily.sunrise && omJson.daily.sunset) {
-            globalSunData = {
-              sunrises: omJson.daily.sunrise.map(t => parseLocalDate(t).getTime()),
-              sunsets: omJson.daily.sunset.map(t => parseLocalDate(t).getTime())
-            };
-          }
         }
 
         if (!globalRawData || globalRawData.length === 0) {
@@ -1081,7 +1116,7 @@
         
         let tempValue = null;
         let tempText = '--';
-        let weatherIcon = '—';
+        let weatherSvgHtml = '—';
         let omMatchedIndices = [];
         globalOpenMeteoData.times.forEach((t, idx) => {
           if (t >= startT && t < endT) omMatchedIndices.push(idx);
@@ -1095,7 +1130,8 @@
             tempText = `${tempValue}`;
           }
           let midIdx = omMatchedIndices[Math.floor(omMatchedIndices.length / 2)];
-          weatherIcon = getWeatherEmoji(globalOpenMeteoData.codes[midIdx]);
+          let midTimestamp = globalOpenMeteoData.times[midIdx];
+          weatherSvgHtml = getWeatherSvg(globalOpenMeteoData.codes[midIdx], midTimestamp);
         }
 
         let badgeStyle = getTempBadgeStyle(tempValue);
@@ -1108,7 +1144,7 @@
         col.innerHTML = `
           ${getVerticalHourlyStarsHTML(activeStars, isPast)}
           <div><span class="hourly-temp-badge" style="${badgeStyle}">${tempText}</span></div>
-          <div class="hourly-weather-icon">${weatherIcon}</div>
+          <div class="hourly-weather-icon">${weatherSvgHtml}</div>
         `;
         container.appendChild(col);
       }
