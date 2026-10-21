@@ -455,9 +455,9 @@
 
     function getActiveStarsCount(avgVal) {
       const absVal = Math.abs(avgVal);
-      if (absVal >= 3.5) return 3;
-      if (absVal >= 2.5) return 2;
-      if (absVal >= 1.5) return 1;
+      if (absVal >= 4) return 3;
+      if (absVal >= 3) return 2;
+      if (absVal >= 2) return 1;
       return 0;
     }
 
