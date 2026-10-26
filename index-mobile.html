@@ -1,0 +1,1045 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lake Garda Wind Forecast - Mobile</title>
+  <!-- Chart.js + Adapter Luxon -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/luxon@3/build/global/luxon.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    body {
+      width: 100%;
+      min-height: 100vh;
+      background-color: #ffffff;
+      display: flex;
+      flex-direction: column;
+      padding: 0;
+      margin: 0;
+    }
+    .wrapper {
+      width: 100%;
+      max-width: none;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: white;
+      padding: 10px 0; /* Padding verticale ma 0 a sinistra e destra per estendere i box full-width */
+      touch-action: pan-y;
+    }
+    /* Elementi interni che mantengono il margine/padding laterale */
+    .header, .legends-bar, .chart-container {
+      padding-left: 10px;
+      padding-right: 10px;
+    }
+    .header {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-bottom: 2px;
+      border-bottom: 1px solid #e2e8f0;
+      padding-bottom: 6px;
+    }
+    .header-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .header-left h2 {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #0f172a;
+    }
+    .header-left p {
+      font-size: 0.7rem;
+      font-weight: 500;
+      color: #475569;
+    }
+    .header-right-unified {
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      padding: 3px 6px;
+      gap: 6px;
+    }
+    .info-section {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+    }
+    .info-label {
+      font-size: 0.5rem;
+      font-weight: 700;
+      color: #64748b;
+      text-transform: uppercase;
+    }
+    .info-value {
+      font-size: 0.65rem;
+      font-weight: 800;
+      color: #0284c7;
+    }
+    .info-value-countdown {
+      font-size: 0.65rem;
+      font-weight: 800;
+      color: #334155;
+    }
+
+    /* Contenitore delle leggende su 3 righe */
+    .legends-bar {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-top: 4px;
+      margin-bottom: 6px;
+    }
+    .legend-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 4px;
+      width: 100%;
+    }
+    .legend-btn {
+      flex: 1;
+      min-width: 0;
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      border-radius: 5px;
+      padding: 5px 2px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      cursor: pointer;
+      font-size: 0.6rem;
+      font-weight: 700;
+      color: #1e293b;
+      white-space: nowrap;
+    }
+
+    /* Timeline dei giorni (Estesa a tutta larghezza) */
+    .timeline-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #f1f5f9;
+      border-top: 1px solid #cbd5e1;
+      border-bottom: 1px solid #cbd5e1;
+      border-left: none;
+      border-right: none;
+      border-radius: 0;
+      padding: 3px 10px;
+      margin-bottom: 5px;
+      gap: 2px;
+      width: 100%;
+    }
+    .timeline-day-btn {
+      flex: 1;
+      background: transparent;
+      border: none;
+      border-radius: 4px;
+      padding: 5px 1px;
+      text-align: center;
+      cursor: pointer;
+      font-size: 0.6rem;
+      font-weight: 600;
+      color: #475569;
+      transition: all 0.15s ease;
+    }
+    .timeline-day-btn.active {
+      background: #0284c7;
+      color: #ffffff;
+      font-weight: 700;
+    }
+    /* Stili specifici per il giorno odierno */
+    .timeline-day-btn.today {
+      background: #fee2e2;
+      color: #991b1b;
+      font-weight: 700;
+    }
+    .timeline-day-btn.today.active {
+      background: #ef4444;
+      color: #ffffff;
+      font-weight: 700;
+    }
+
+    .chart-container {
+      width: 100%;
+      height: 280px;
+      position: relative;
+    }
+    #loading {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 0.9rem;
+      color: #64748b;
+      font-weight: 600;
+    }
+
+    /* Tabella info orarie / stelline (Estesa a tutta larghezza) */
+    .hourly-info-bar {
+      width: 100%;
+      height: 75px;
+      position: relative;
+      margin-top: 4px;
+      border-top: 1px solid #e2e8f0;
+      border-bottom: 1px solid #e2e8f0;
+      border-left: none;
+      border-right: none;
+      border-radius: 0;
+      background: #f8fafc;
+      overflow: hidden;
+    }
+    .hourly-col-wrapper {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      border-right: 1px dashed #cbd5e1;
+      padding: 4px 1px;
+    }
+    .hourly-stars-vertical {
+      display: inline-flex;
+      flex-direction: column;
+      line-height: 0.8;
+      font-size: 0.75rem;
+    }
+    .star-on-past { color: #0284c7; }
+    .star-on-future { color: #d97706; }
+    .star-off { color: #cbd5e1; }
+    .hourly-temp-badge {
+      font-size: 0.58rem;
+      font-weight: 800;
+      padding: 1px 2px;
+      border-radius: 3px;
+    }
+    .hourly-weather-icon {
+      display: flex;
+      align-items: center;
+      height: 14px;
+    }
+    .hourly-weather-icon svg {
+      width: 14px;
+      height: 14px;
+      fill: #475569;
+    }
+
+    /* Contenitore Live Spots (Esteso a tutta larghezza) */
+    .spots-container-wrapper {
+      margin-top: 6px;
+      width: 100%;
+      background: #f8fafc;
+      border-top: 1px solid #cbd5e1;
+      border-bottom: 1px solid #cbd5e1;
+      border-left: none;
+      border-right: none;
+      border-radius: 0;
+      overflow: hidden;
+    }
+    .spots-header-title {
+      font-size: 0.7rem;
+      font-weight: 800;
+      color: #0f172a;
+      text-transform: uppercase;
+      padding: 5px 14px;
+      background: #f1f5f9;
+      border-bottom: 1px solid #cbd5e1;
+      display: flex;
+      justify-content: space-between;
+    }
+    
+    /* Grid 3 colonne x 2 righe */
+    .spots-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 5px;
+      padding: 5px;
+      background: #e2e8f0;
+    }
+    .spot-section {
+      background: #ffffff;
+      padding: 4px;
+      border-radius: 6px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      align-items: center;
+      border: 1px solid #cbd5e1;
+    }
+    .spot-section.empty-box {
+      background: #f8fafc;
+      border: 1px dashed #cbd5e1;
+    }
+    .spot-label {
+      font-size: 0.65rem;
+      font-weight: 800;
+      color: #1e293b;
+      text-align: center;
+      width: 100%;
+      margin-bottom: 2px;
+      border-bottom: 1px solid #f1f5f9;
+      padding-bottom: 2px;
+    }
+    .spot-data-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      width: 100%;
+      gap: 2px;
+    }
+    .spot-sub-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .spot-sub-label {
+      font-size: 0.5rem;
+      font-weight: 700;
+      color: #64748b;
+    }
+    .spot-sub-value {
+      font-size: 0.65rem;
+      font-weight: 800;
+      color: #0284c7;
+      padding: 1px 2px;
+      border-radius: 3px;
+    }
+    .base-badge { background-color: #d1fae5; color: #065f46; }
+    .raffica-badge { background-color: #ffe4e6; color: #9f1239; }
+  </style>
+</head>
+<body>
+  <div class="wrapper" id="swipeArea">
+    <div class="header">
+      <div class="header-top">
+        <div class="header-left">
+          <h2>Garda Wind Forecast</h2>
+          <p>Live pressure and Forecasts</p>
+        </div>
+        <div class="header-right-unified">
+          <div class="info-section">
+            <span class="info-label">Last Update</span>
+            <span class="info-value" id="valDeltaReale">--</span>
+          </div>
+          <div class="info-section" style="border-left: 1px solid #cbd5e1; padding-left: 6px;">
+            <span class="info-label">Next</span>
+            <span class="info-value-countdown" id="valCountdown">--:--</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="legends-bar" id="customLegend"></div>
+
+    <!-- Linea temporale dei giorni -->
+    <div class="timeline-bar" id="timelineBar"></div>
+
+    <div class="chart-container">
+      <div id="loading">Loading data...</div>
+      <canvas id="timeChart"></canvas>
+    </div>
+
+    <div class="hourly-info-bar" id="hourlyInfoBar"></div>
+
+    <div class="spots-container-wrapper">
+      <div class="spots-header-title">
+        <span>Live Spots</span>
+        <span id="sheet-timestamp">--</span>
+      </div>
+      <div class="spots-grid" id="spotsGrid"></div>
+    </div>
+  </div>
+
+  <script>
+    const API_URL = 'https://black-shape-f92b.nicolo-remelli.workers.dev/';
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw906F7qMzXBz6FR63HshUnNYcGiaSmdY3y_jU5VWY3Dyw1QCPayHXjr0Zrk6AukuZi/exec';
+    
+    let chartInstance = null;
+    let globalRawData = [];
+    let globalOpenMeteoData = { times: [], temps: [], codes: [] };
+    let globalSunData = { sunrises: [], sunsets: [] };
+    let latestDataTimestamp = null;
+    let showSunriseLines = false;
+    let showSunsetLines = false;
+    let nextRefreshTimestamp = null;
+    let countdownInterval = null;
+
+    const todayMidnight = new Date();
+    todayMidnight.setHours(0, 0, 0, 0);
+    const minAllowedMidnight = new Date(todayMidnight.getTime() - (1 * 24 * 3600 * 1000)).getTime();
+    const maxAllowedMidnight = new Date(todayMidnight.getTime() + (5 * 24 * 3600 * 1000)).getTime();
+
+    let selectedDayMidnight = todayMidnight.getTime();
+
+    const svgIcons = {
+      sun: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32l1.41 1.41M2 12h2m16 0h2M6.34 17.66l-1.41 1.41m12.73-12.73l-1.41 1.41" stroke="#475569" stroke-width="2" stroke-linecap="round"/></svg>',
+      moon: '<svg viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" stroke="#475569" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      cloudSun: '<svg viewBox="0 0 24 24"><path d="M12 3v1m0 16v1m-7.07-3.07l.71.71m12.72 0l.71-.71M3 12h1m16 0h1M5.64 6.34l.7.7m11.32 0l.7-.7" stroke="#475569" stroke-width="1.5" stroke-linecap="round"/><path d="M17 18H9a4 4 0 0 1-.38-7.98 5 5 0 0 1 9.76 1.48A3 3 0 0 1 17 18z" fill="#475569"/></svg>',
+      cloudMoon: '<svg viewBox="0 0 24 24"><path d="M17 18H9a4 4 0 0 1-.38-7.98 5 5 0 0 1 9.76 1.48A3 3 0 0 1 17 18z" fill="#475569"/></svg>',
+      cloud: '<svg viewBox="0 0 24 24"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z" fill="#475569"/></svg>',
+      rain: '<svg viewBox="0 0 24 24"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z" fill="#475569"/><path d="M8 22l-1 2m6-2l-1 2m6-2l-1 2" stroke="#475569" stroke-width="2" stroke-linecap="round"/></svg>',
+      storm: '<svg viewBox="0 0 24 24"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z" fill="#475569"/><path d="M13 14l-3 4h4l-3 4" stroke="#475569" stroke-width="1.8" fill="none" stroke-linejoin="round"/></svg>'
+    };
+
+    function parseLocalDate(isoString) {
+      if (!isoString) return new Date();
+      const parts = isoString.split(/[-T:]/);
+      if (parts.length >= 5) {
+        return new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10), parseInt(parts[3], 10), parseInt(parts[4], 10));
+      }
+      return new Date(isoString);
+    }
+
+    function getActiveStarsCount(avgVal) {
+      const absVal = Math.abs(avgVal);
+      if (absVal >= 4) return 3;
+      if (absVal >= 3) return 2;
+      if (absVal >= 2) return 1;
+      return 0;
+    }
+
+    function getVerticalHourlyStarsHTML(activeCount, isPast) {
+      let html = '<div class="hourly-stars-vertical">';
+      for (let i = 1; i <= 3; i++) {
+        let cls = 'star-off';
+        if (i <= activeCount) cls = isPast ? 'star-on-past' : 'star-on-future';
+        html += `<span class="${cls}">★</span>`;
+      }
+      return html + '</div>';
+    }
+
+    function getTempBadgeStyle(temp) {
+      if (temp === null || isNaN(temp)) return 'background-color: #e2e8f0; color: #64748b;';
+      let t = Math.max(0, Math.min(35, temp));
+      let hue = (1 - (t / 35)) * 220;
+      return `background-color: hsl(${hue}, 85%, 84%); color: hsl(${hue}, 95%, 22%);`;
+    }
+
+    function isNightTime(ts) {
+      const dateOnly = new Date(ts);
+      dateOnly.setHours(0, 0, 0, 0);
+      const dayMidnight = dateOnly.getTime();
+
+      let sunriseTs = null;
+      let sunsetTs = null;
+
+      if (globalSunData.sunrises && globalSunData.sunsets) {
+        for (let i = 0; i < globalSunData.sunrises.length; i++) {
+          const sDate = new Date(globalSunData.sunrises[i]);
+          sDate.setHours(0, 0, 0, 0);
+          if (sDate.getTime() === dayMidnight) {
+            sunriseTs = globalSunData.sunrises[i];
+            sunsetTs = globalSunData.sunsets[i];
+            break;
+          }
+        }
+      }
+
+      if (sunriseTs !== null && sunsetTs !== null) {
+        return ts < sunriseTs || ts >= sunsetTs;
+      }
+
+      const hour = new Date(ts).getHours();
+      return hour < 6 || hour >= 20;
+    }
+
+    function getWeatherSvg(code, ts) {
+      if (code === undefined || code === null) return '—';
+      const night = isNightTime(ts);
+      if (code === 0) return night ? svgIcons.moon : svgIcons.sun;
+      if (code === 1 || code === 2) return night ? svgIcons.cloudMoon : svgIcons.cloudSun;
+      if (code === 3) return svgIcons.cloud;
+      if (code >= 51 && code <= 67) return svgIcons.rain;
+      if (code >= 95) return svgIcons.storm;
+      return night ? svgIcons.cloudMoon : svgIcons.cloudSun;
+    }
+
+    function updateHeaderLatestInfo(realDeltaArray) {
+      const el = document.getElementById('valDeltaReale');
+      if (!realDeltaArray || !Array.isArray(realDeltaArray) || realDeltaArray.length === 0) {
+        el.innerText = 'No Data';
+        latestDataTimestamp = null;
+        return;
+      }
+      const validItems = realDeltaArray
+        .filter(item => item && item.real_delta !== null && item.real_delta !== undefined && !isNaN(item.real_delta))
+        .sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
+
+      if (validItems.length > 0) {
+        const latest = validItems[validItems.length - 1];
+        latestDataTimestamp = new Date(latest.time).getTime();
+        const dateObj = new Date(latest.time);
+        const timeStr = dateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+        const val = latest.real_delta;
+        const sign = val > 0 ? '+' : '';
+        el.innerText = `${sign}${val}hPa [${timeStr}]`;
+      } else {
+        el.innerText = 'Syncing...';
+        latestDataTimestamp = null;
+      }
+    }
+
+    async function updateLiveSpotsData() {
+      try {
+        const resSpot = await fetch(SCRIPT_URL + '?_=' + Date.now());
+        const jsonSpot = await resSpot.json();
+
+        document.getElementById('sheet-timestamp').innerText = jsonSpot.timestamp ? jsonSpot.timestamp : '--';
+        const spots = [
+          { name: 'Torbole', key: 'torbole' },
+          { name: 'Limone', key: 'caporeamol' },
+          { name: 'Campagnola', key: 'malcesinenord' },
+          { name: 'Malcesine', key: 'malcesine' },
+          { name: 'Campione', key: 'campione' }
+        ];
+        
+        let spotsHtml = '';
+        spots.forEach(s => {
+          let d = jsonSpot[s.key] || { temp: '--', dir: '--', base: '--', raffica: '--' };
+          let tempFormatted = (d.temp && typeof d.temp === 'string') ? d.temp.replace(/°C/g, '°').replace(/C/g, '') : (d.temp || '--');
+          spotsHtml += `
+            <div class="spot-section">
+              <span class="spot-label">${s.name}</span>
+              <div class="spot-data-row">
+                <div class="spot-sub-item"><span class="spot-sub-label">Temp</span><span class="spot-sub-value">${tempFormatted}</span></div>
+                <div class="spot-sub-item"><span class="spot-sub-label">Dir</span><span class="spot-sub-value">${d.dir || '--'}</span></div>
+                <div class="spot-sub-item"><span class="spot-sub-label">Wind</span><span class="spot-sub-value base-badge">${d.base || '--'}</span></div>
+                <div class="spot-sub-item"><span class="spot-sub-label">Gust</span><span class="spot-sub-value raffica-badge">${d.raffica || '--'}</span></div>
+              </div>
+            </div>`;
+        });
+        
+        spotsHtml += `<div class="spot-section empty-box"></div>`;
+        document.getElementById('spotsGrid').innerHTML = spotsHtml;
+      } catch (err) {
+        console.error('Errore durante l\'aggiornamento dei Live Spots:', err);
+      }
+    }
+
+    async function loadAllData() {
+      try {
+        const [resMain] = await Promise.all([
+          fetch(API_URL + '?_=' + Date.now()),
+          updateLiveSpotsData()
+        ]);
+        
+        const jsonMain = await resMain.json();
+
+        let realDeltaArray = [];
+        if (jsonMain.real_delta) {
+          realDeltaArray = Array.isArray(jsonMain.real_delta) ? jsonMain.real_delta : (jsonMain.real_delta.data || []);
+        }
+        updateHeaderLatestInfo(realDeltaArray);
+
+        if (jsonMain.weather_info && jsonMain.weather_info.hourly) {
+          globalOpenMeteoData = {
+            times: jsonMain.weather_info.hourly.time.map(t => parseLocalDate(t).getTime()),
+            temps: jsonMain.weather_info.hourly.temperature_2m,
+            codes: jsonMain.weather_info.hourly.weather_code
+          };
+
+          if (jsonMain.weather_info.daily && jsonMain.weather_info.daily.sunrise) {
+            globalSunData = {
+              sunrises: jsonMain.weather_info.daily.sunrise.map(t => parseLocalDate(t).getTime()),
+              sunsets: jsonMain.weather_info.daily.sunset.map(t => parseLocalDate(t).getTime())
+            };
+          }
+        }
+
+        let realDeltaMap = {};
+        realDeltaArray.forEach(item => {
+          if (item && item.time) realDeltaMap[new Date(item.time).getTime()] = item.real_delta;
+        });
+
+        const ghedi = jsonMain.ghedi_e_bolzano ? jsonMain.ghedi_e_bolzano[0] : null;
+        const bolzano = jsonMain.ghedi_e_bolzano ? jsonMain.ghedi_e_bolzano[1] : null;
+
+        if (ghedi && bolzano) {
+          globalRawData = ghedi.hourly.time.map((t, idx) => {
+            const dateObj = parseLocalDate(t);
+            const ts = dateObj.getTime();
+            
+            let ms = (ghedi.hourly.pressure_msl_meteoswiss_icon_ch1 && bolzano.hourly.pressure_msl_meteoswiss_icon_ch1 && ghedi.hourly.pressure_msl_meteoswiss_icon_ch1[idx] != null && bolzano.hourly.pressure_msl_meteoswiss_icon_ch1[idx] != null) ? parseFloat((ghedi.hourly.pressure_msl_meteoswiss_icon_ch1[idx] - bolzano.hourly.pressure_msl_meteoswiss_icon_ch1[idx]).toFixed(2)) : null;
+            let mf = (ghedi.hourly.pressure_msl_meteofrance_seamless && bolzano.hourly.pressure_msl_meteofrance_seamless && ghedi.hourly.pressure_msl_meteofrance_seamless[idx] != null && bolzano.hourly.pressure_msl_meteofrance_seamless[idx] != null) ? parseFloat((ghedi.hourly.pressure_msl_meteofrance_seamless[idx] - bolzano.hourly.pressure_msl_meteofrance_seamless[idx]).toFixed(2)) : null;
+            let icon = (ghedi.hourly.pressure_msl_icon_seamless && bolzano.hourly.pressure_msl_icon_seamless && ghedi.hourly.pressure_msl_icon_seamless[idx] != null && bolzano.hourly.pressure_msl_icon_seamless[idx] != null) ? parseFloat((ghedi.hourly.pressure_msl_icon_seamless[idx] - bolzano.hourly.pressure_msl_icon_seamless[idx]).toFixed(2)) : null;
+            let gfs = (ghedi.hourly.pressure_msl_gfs_seamless && bolzano.hourly.pressure_msl_gfs_seamless && ghedi.hourly.pressure_msl_gfs_seamless[idx] != null && bolzano.hourly.pressure_msl_gfs_seamless[idx] != null) ? parseFloat((ghedi.hourly.pressure_msl_gfs_seamless[idx] - bolzano.hourly.pressure_msl_gfs_seamless[idx]).toFixed(2)) : null;
+
+            return {
+              time: ts,
+              real_delta: realDeltaMap[ts] !== undefined ? realDeltaMap[ts] : null,
+              meteoswiss_icon_ch1: ms,
+              meteofrance_seamless: mf,
+              icon_seamless: icon,
+              gfs_seamless: gfs
+            };
+          });
+        }
+
+        document.getElementById('loading').style.display = 'none';
+        renderTimelineBar();
+        renderDayView();
+
+      } catch (err) {
+        console.error(err);
+        document.getElementById('loading').innerText = 'Errore caricamento dati';
+      }
+    }
+
+    function renderTimelineBar() {
+      const timelineContainer = document.getElementById('timelineBar');
+      timelineContainer.innerHTML = '';
+
+      for (let t = minAllowedMidnight; t <= maxAllowedMidnight; t += 24 * 3600 * 1000) {
+        const dObj = new Date(t);
+        const dayLabel = dObj.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' });
+        
+        const isToday = t === todayMidnight.getTime();
+        const isActive = t === selectedDayMidnight;
+
+        let btnClass = 'timeline-day-btn';
+        if (isToday) btnClass += ' today';
+        if (isActive) btnClass += ' active';
+
+        const btn = document.createElement('button');
+        btn.className = btnClass;
+        btn.innerText = dayLabel;
+        btn.onclick = () => {
+          selectedDayMidnight = t;
+          renderTimelineBar();
+          renderDayView();
+        };
+        timelineContainer.appendChild(btn);
+      }
+    }
+
+    function renderDayView() {
+      const dayStart = selectedDayMidnight;
+      const dayEnd = dayStart + (24 * 60 * 60 * 1000);
+
+      const ticks = [];
+      for (let t = dayStart; t <= dayEnd; t += 3 * 3600 * 1000) {
+        ticks.push(t);
+      }
+
+      let realDelta = [], meteoSwiss = [], meteoFrance = [], iconSeamless = [], gfsSeamless = [];
+      let maxAbs = 2;
+
+      globalRawData.forEach(item => {
+        if (item.time >= dayStart && item.time <= dayEnd) {
+          if (item.real_delta != null) { realDelta.push({ x: item.time, y: item.real_delta }); maxAbs = Math.max(maxAbs, Math.abs(item.real_delta)); }
+          if (item.meteoswiss_icon_ch1 != null) { meteoSwiss.push({ x: item.time, y: item.meteoswiss_icon_ch1 }); maxAbs = Math.max(maxAbs, Math.abs(item.meteoswiss_icon_ch1)); }
+          if (item.meteofrance_seamless != null) { meteoFrance.push({ x: item.time, y: item.meteofrance_seamless }); maxAbs = Math.max(maxAbs, Math.abs(item.meteofrance_seamless)); }
+          if (item.icon_seamless != null) { iconSeamless.push({ x: item.time, y: item.icon_seamless }); maxAbs = Math.max(maxAbs, Math.abs(item.icon_seamless)); }
+          if (item.gfs_seamless != null) { gfsSeamless.push({ x: item.time, y: item.gfs_seamless }); maxAbs = Math.max(maxAbs, Math.abs(item.gfs_seamless)); }
+        }
+      });
+
+      if (latestDataTimestamp && latestDataTimestamp >= dayStart && latestDataTimestamp <= dayEnd && realDelta.length > 0) {
+        realDelta.sort((a, b) => a.x - b.x);
+        const lastPoint = realDelta[realDelta.length - 1];
+        if (lastPoint && lastPoint.x < latestDataTimestamp) {
+          realDelta.push({ x: latestDataTimestamp, y: lastPoint.y });
+        }
+      }
+
+      let limitY = maxAbs > 6 ? Math.ceil(maxAbs) : 6;
+
+      const customLinesPlugin = {
+        id: 'customLines',
+        afterDraw: (chart) => {
+          const xAxis = chart.scales.x, yAxis = chart.scales.y, ctx = chart.ctx;
+          ctx.save();
+
+          ctx.font = 'bold 11px sans-serif';
+          ctx.fillStyle = '#475569';
+          ctx.textAlign = 'left';
+
+          ctx.fillText('▲ ORA', xAxis.left + 8, yAxis.top + 16);
+          ctx.fillText('▼ PELER', xAxis.left + 8, yAxis.bottom - 8);
+
+          if (showSunriseLines && globalSunData.sunrises) {
+            globalSunData.sunrises.forEach(ts => {
+              if (ts >= dayStart && ts <= dayEnd) {
+                const xPixel = xAxis.getPixelForValue(ts);
+                if (xPixel >= xAxis.left && xPixel <= xAxis.right) {
+                  ctx.beginPath(); ctx.moveTo(xPixel, yAxis.top); ctx.lineTo(xPixel, yAxis.bottom);
+                  ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(234, 179, 8, 0.85)'; ctx.setLineDash([3, 3]); ctx.stroke(); ctx.setLineDash([]);
+                  
+                  ctx.fillStyle = '#ca8a04';
+                  ctx.font = '600 9px sans-serif';
+                  ctx.textAlign = 'left';
+                  const timeLabel = new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+                  ctx.fillText(`☀️ ${timeLabel}`, xPixel + 3, yAxis.bottom - 8);
+                }
+              }
+            });
+          }
+
+          if (showSunsetLines && globalSunData.sunsets) {
+            globalSunData.sunsets.forEach(ts => {
+              if (ts >= dayStart && ts <= dayEnd) {
+                const xPixel = xAxis.getPixelForValue(ts);
+                if (xPixel >= xAxis.left && xPixel <= xAxis.right) {
+                  ctx.beginPath(); ctx.moveTo(xPixel, yAxis.top); ctx.lineTo(xPixel, yAxis.bottom);
+                  ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(249, 115, 22, 0.85)'; ctx.setLineDash([3, 3]); ctx.stroke(); ctx.setLineDash([]);
+
+                  ctx.fillStyle = '#c2410c';
+                  ctx.font = '600 9px sans-serif';
+                  ctx.textAlign = 'left';
+                  const timeLabel = new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+                  ctx.fillText(`🌙 ${timeLabel}`, xPixel + 3, yAxis.bottom - 8);
+                }
+              }
+            });
+          }
+
+          if (latestDataTimestamp && latestDataTimestamp >= dayStart && latestDataTimestamp <= dayEnd) {
+            const xPixel = xAxis.getPixelForValue(latestDataTimestamp);
+            if (xPixel >= xAxis.left && xPixel <= xAxis.right) {
+              ctx.beginPath();
+              ctx.moveTo(xPixel, yAxis.top);
+              ctx.lineTo(xPixel, yAxis.bottom);
+              ctx.lineWidth = 2;
+              ctx.strokeStyle = '#ef4444';
+              ctx.setLineDash([3, 3]);
+              ctx.stroke();
+              ctx.setLineDash([]);
+
+              ctx.fillStyle = '#ef4444';
+              ctx.fillRect(xPixel - 14, yAxis.top - 2, 28, 14);
+              ctx.fillStyle = '#ffffff';
+              ctx.font = 'bold 9px sans-serif';
+              ctx.textAlign = 'left';
+              ctx.fillText('NOW', xPixel - 10, yAxis.top + 8);
+            }
+          }
+
+          ctx.restore();
+        }
+      };
+
+      const alignUIElementsPlugin = {
+        id: 'alignUIElements',
+        afterLayout: (chart) => {
+          renderHourlyInfoBar(ticks, chart);
+        }
+      };
+
+      if (chartInstance) chartInstance.destroy();
+
+      const ctx = document.getElementById('timeChart').getContext('2d');
+      chartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          datasets: [
+            { label: 'Live Delta', data: realDelta, borderColor: '#0284c7', borderWidth: 3, tension: 0.2, spanGaps: false },
+            { label: 'MeteoSwiss', data: meteoSwiss, borderColor: '#eab308', borderWidth: 1.5, tension: 0.2, spanGaps: false },
+            { label: 'MeteoFrance', data: meteoFrance, borderColor: '#10b981', borderWidth: 1.5, tension: 0.2, spanGaps: false },
+            { label: 'ICON', data: iconSeamless, borderColor: '#8b5cf6', borderWidth: 1.5, tension: 0.2, spanGaps: false },
+            { label: 'GFS', data: gfsSeamless, borderColor: '#f97316', borderWidth: 1.5, tension: 0.2, spanGaps: false }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { intersect: false, mode: 'index' },
+          elements: { 
+            point: { 
+              radius: 0,
+              hoverRadius: 0
+            }
+          },
+          plugins: { 
+            legend: { display: false }, 
+            tooltip: { enabled: false } 
+          },
+          scales: {
+            x: {
+              type: 'time',
+              min: dayStart,
+              max: dayEnd,
+              time: { unit: 'hour', stepSize: 3 },
+              afterBuildTicks: (scale) => { scale.ticks = ticks.map(val => ({ value: val })); },
+              ticks: {
+                autoSkip: false,
+                maxRotation: 0,
+                font: { size: 10, weight: '600' },
+                color: '#334155',
+                callback: (val, index) => {
+                  const hour = new Date(val).getHours();
+                  if (index === 0 || hour === 0) return '0h';
+                  return hour + 'h';
+                }
+              },
+              grid: { color: '#e2e8f0' }
+            },
+            y: {
+              type: 'linear',
+              position: 'left',
+              min: -limitY, 
+              max: limitY,
+              ticks: {
+                stepSize: 2,
+                font: { size: 9.5, weight: '600' },
+                callback: (v) => v === 0 ? '0 hPa' : `${v > 0 ? '+' : ''}${v} hPa`
+              },
+              grid: {
+                color: (c) => {
+                  if (c.tick.value === 0) return '#0f172a';
+                  if (c.tick.value === 2 || c.tick.value === -2) return '#94a3b8';
+                  return '#e2e8f0';
+                },
+                lineWidth: (c) => {
+                  if (c.tick.value === 2 || c.tick.value === -2) return 1.5;
+                  return 1;
+                }
+              }
+            },
+            y1: {
+              type: 'linear',
+              position: 'right',
+              min: -limitY * 5,
+              max: limitY * 5,
+              grid: {
+                drawOnChartArea: false,
+              },
+              ticks: {
+                stepSize: 10,
+                font: { size: 9.5, weight: '600' },
+                callback: (v) => `${Math.abs(v)} kn`
+              }
+            }
+          }
+        },
+        plugins: [customLinesPlugin, alignUIElementsPlugin]
+      });
+
+      setupCustomLegend(chartInstance);
+    }
+
+    function setupCustomLegend(chart) {
+      const container = document.getElementById('customLegend');
+      container.innerHTML = '';
+
+      const row1 = document.createElement('div');
+      row1.className = 'legend-row';
+      row1.appendChild(createDatasetLegendBtn(chart, 0));
+      row1.appendChild(createDatasetLegendBtn(chart, 1));
+      row1.appendChild(createDatasetLegendBtn(chart, 2));
+      container.appendChild(row1);
+
+      const row2 = document.createElement('div');
+      row2.className = 'legend-row';
+      row2.appendChild(createDatasetLegendBtn(chart, 3));
+      row2.appendChild(createDatasetLegendBtn(chart, 4));
+      container.appendChild(row2);
+
+      const row3 = document.createElement('div');
+      row3.className = 'legend-row';
+
+      const sunriseBtn = document.createElement('div');
+      sunriseBtn.className = 'legend-btn';
+      sunriseBtn.style.opacity = showSunriseLines ? '1' : '0.4';
+      sunriseBtn.innerHTML = `<span style="width:7px;height:7px;background:#eab308;display:inline-block;border-radius:2px;"></span> Sunrise`;
+      sunriseBtn.onclick = () => {
+        showSunriseLines = !showSunriseLines;
+        sunriseBtn.style.opacity = showSunriseLines ? '1' : '0.4';
+        chart.update();
+      };
+      row3.appendChild(sunriseBtn);
+
+      const sunsetBtn = document.createElement('div');
+      sunsetBtn.className = 'legend-btn';
+      sunsetBtn.style.opacity = showSunsetLines ? '1' : '0.4';
+      sunsetBtn.innerHTML = `<span style="width:7px;height:7px;background:#f97316;display:inline-block;border-radius:2px;"></span> Sunset`;
+      sunsetBtn.onclick = () => {
+        showSunsetLines = !showSunsetLines;
+        sunsetBtn.style.opacity = showSunsetLines ? '1' : '0.4';
+        chart.update();
+      };
+      row3.appendChild(sunsetBtn);
+      
+      container.appendChild(row3);
+    }
+
+    function createDatasetLegendBtn(chart, datasetIndex) {
+      const ds = chart.data.datasets[datasetIndex];
+      const btn = document.createElement('div');
+      btn.className = 'legend-btn';
+      const meta = chart.getDatasetMeta(datasetIndex);
+      btn.style.opacity = (meta && meta.hidden) ? '0.4' : '1';
+      btn.innerHTML = `<span style="width:7px;height:7px;background:${ds.borderColor};display:inline-block;border-radius:2px;"></span> ${ds.label}`;
+      btn.onclick = () => {
+        const m = chart.getDatasetMeta(datasetIndex);
+        m.hidden = m.hidden === null ? !ds.hidden : null;
+        chart.update();
+        btn.style.opacity = m.hidden ? '0.4' : '1';
+      };
+      return btn;
+    }
+
+    function renderHourlyInfoBar(ticks, chart) {
+      const xAxis = chart.scales.x;
+      if (!xAxis) return;
+      const container = document.getElementById('hourlyInfoBar');
+      container.innerHTML = '';
+      const now = Date.now();
+
+      for (let i = 0; i < ticks.length - 1; i++) {
+        let startT = ticks[i];
+        let endT = ticks[i + 1];
+        let leftPixel = xAxis.getPixelForValue(startT);
+        let rightPixel = xAxis.getPixelForValue(endT);
+        let width = rightPixel - leftPixel;
+        if (width <= 0) continue;
+
+        let matched = globalRawData.filter(item => item.time >= startT && item.time < endT);
+        let isPast = endT <= now;
+        let activeStars = 0;
+
+        if (matched.length > 0) {
+          if (isPast) {
+            let reals = matched.filter(m => m.real_delta != null).map(m => m.real_delta);
+            if (reals.length) activeStars = getActiveStarsCount(reals.reduce((a,b)=>a+b,0)/reals.length);
+          } else {
+            let models = [];
+            matched.forEach(m => {
+              ['meteoswiss_icon_ch1', 'meteofrance_seamless', 'icon_seamless', 'gfs_seamless'].forEach(k => { if(m[k]!=null) models.push(m[k]); });
+            });
+            if (models.length) activeStars = getActiveStarsCount(models.reduce((a,b)=>a+b,0)/models.length);
+          }
+        }
+
+        let tempVal = null;
+        let omMatch = globalOpenMeteoData.times.map((t, idx) => (t >= startT && t < endT) ? idx : -1).filter(idx => idx !== -1);
+        let weatherSvg = '—';
+        if (omMatch.length > 0) {
+          let temps = omMatch.map(idx => globalOpenMeteoData.temps[idx]).filter(v => v != null);
+          if (temps.length) tempVal = Math.round(temps.reduce((a,b)=>a+b,0)/temps.length);
+          weatherSvg = getWeatherSvg(globalOpenMeteoData.codes[omMatch[0]], globalOpenMeteoData.times[omMatch[0]]);
+        }
+
+        const col = document.createElement('div');
+        col.className = 'hourly-col-wrapper';
+        col.style.left = `${leftPixel}px`;
+        col.style.width = `${width}px`;
+        if (i === 0) {
+          col.style.borderLeft = '1px dashed #cbd5e1';
+        }
+        col.innerHTML = `
+          ${getVerticalHourlyStarsHTML(activeStars, isPast)}
+          <span class="hourly-temp-badge" style="${getTempBadgeStyle(tempVal)}">${tempVal != null ? tempVal + '°' : '--'}</span>
+          <div class="hourly-weather-icon">${weatherSvg}</div>
+        `;
+        container.appendChild(col);
+      }
+    }
+
+    function startCountdown(targetTimestamp) {
+      nextRefreshTimestamp = targetTimestamp;
+      if (countdownInterval) clearInterval(countdownInterval);
+
+      countdownInterval = setInterval(() => {
+        const now = Date.now();
+        const diff = nextRefreshTimestamp - now;
+
+        if (diff <= 0) {
+          document.getElementById('valCountdown').innerText = '00:00';
+          clearInterval(countdownInterval);
+          return;
+        }
+
+        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+        document.getElementById('valCountdown').innerText = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+      }, 1000);
+    }
+
+    function scheduleNextRefresh() {
+      const now = new Date();
+      const targetSlots = [{ m: 1, s: 0 }, { m: 16, s: 0 }, { m: 31, s: 0 }, { m: 46, s: 0 }];
+      const currentTotalSec = (now.getMinutes() * 60) + now.getSeconds() + (now.getMilliseconds() / 1000);
+      let nextSec = null;
+
+      for (let slot of targetSlots) {
+        let slotSec = (slot.m * 60) + slot.s;
+        if (slotSec > currentTotalSec) { nextSec = slotSec; break; }
+      }
+
+      let delayMs = nextSec !== null ? (nextSec - currentTotalSec) * 1000 : ((60 * 60) + targetSlots[0].m * 60 - currentTotalSec) * 1000;
+      startCountdown(now.getTime() + delayMs);
+
+      setTimeout(() => {
+        loadAllData();
+        scheduleNextRefresh();
+      }, delayMs);
+    }
+
+    function prevDay() {
+      let nextTarget = selectedDayMidnight - (24 * 3600 * 1000);
+      if (nextTarget >= minAllowedMidnight) {
+        selectedDayMidnight = nextTarget;
+        renderTimelineBar();
+        renderDayView();
+      }
+    }
+
+    function nextDay() {
+      let nextTarget = selectedDayMidnight + (24 * 3600 * 1000);
+      if (nextTarget <= maxAllowedMidnight) {
+        selectedDayMidnight = nextTarget;
+        renderTimelineBar();
+        renderDayView();
+      }
+    }
+
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let touchEndX = 0;
+    let touchEndY = 0;
+
+    const swipeArea = document.getElementById('swipeArea');
+
+    swipeArea.addEventListener('touchstart', (e) => {
+      touchStartX = e.changedTouches[0].screenX;
+      touchStartY = e.changedTouches[0].screenY;
+    }, { passive: true });
+
+    swipeArea.addEventListener('touchend', (e) => {
+      touchEndX = e.changedTouches[0].screenX;
+      touchEndY = e.changedTouches[0].screenY;
+      handleSwipe();
+    }, { passive: true });
+
+    function handleSwipe() {
+      const diffX = touchEndX - touchStartX;
+      const diffY = touchEndY - touchStartY;
+
+      if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 50) {
+        if (diffX < 0) {
+          nextDay();
+        } else {
+          prevDay();
+        }
+      }
+    }
+
+    loadAllData();
+    scheduleNextRefresh();
+    setInterval(updateLiveSpotsData, 60000);
+  </script>
+</body>
+</html>
