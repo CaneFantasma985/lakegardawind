@@ -31,13 +31,13 @@
       display: flex;
       flex-direction: column;
       background: white;
-      padding: 10px 0; /* Padding verticale ma 0 a sinistra e destra per estendere i box full-width */
+      padding: 10px 0;
       touch-action: pan-y;
     }
-    /* Elementi interni che mantengono il margine/padding laterale */
+    /* Elementi interni che mantengono il padding laterale di 5px */
     .header, .legends-bar, .chart-container {
-      padding-left: 10px;
-      padding-right: 10px;
+      padding-left: 5px;
+      padding-right: 5px;
     }
     .header {
       display: flex;
@@ -125,7 +125,7 @@
       white-space: nowrap;
     }
 
-    /* Timeline dei giorni (Estesa a tutta larghezza) */
+    /* Timeline dei giorni (Allineata con padding 5px) */
     .timeline-bar {
       display: flex;
       justify-content: space-between;
@@ -136,7 +136,7 @@
       border-left: none;
       border-right: none;
       border-radius: 0;
-      padding: 3px 10px;
+      padding: 3px 5px;
       margin-bottom: 5px;
       gap: 2px;
       width: 100%;
@@ -159,7 +159,6 @@
       color: #ffffff;
       font-weight: 700;
     }
-    /* Stili specifici per il giorno odierno */
     .timeline-day-btn.today {
       background: #fee2e2;
       color: #991b1b;
@@ -186,7 +185,7 @@
       font-weight: 600;
     }
 
-    /* Tabella info orarie / stelline (Estesa a tutta larghezza) */
+    /* Tabella info orarie / stelline (Con padding laterale di 5px per combaciare perfettamente) */
     .hourly-info-bar {
       width: 100%;
       height: 75px;
@@ -199,6 +198,8 @@
       border-radius: 0;
       background: #f8fafc;
       overflow: hidden;
+      padding-left: 5px;
+      padding-right: 5px;
     }
     .hourly-col-wrapper {
       position: absolute;
@@ -237,7 +238,7 @@
       fill: #475569;
     }
 
-    /* Contenitore Live Spots (Esteso a tutta larghezza) */
+    /* Contenitore Live Spots */
     .spots-container-wrapper {
       margin-top: 6px;
       width: 100%;
@@ -254,14 +255,13 @@
       font-weight: 800;
       color: #0f172a;
       text-transform: uppercase;
-      padding: 5px 14px;
+      padding: 5px 8px;
       background: #f1f5f9;
       border-bottom: 1px solid #cbd5e1;
       display: flex;
       justify-content: space-between;
     }
     
-    /* Grid 3 colonne x 2 righe */
     .spots-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -344,7 +344,6 @@
 
     <div class="legends-bar" id="customLegend"></div>
 
-    <!-- Linea temporale dei giorni -->
     <div class="timeline-bar" id="timelineBar"></div>
 
     <div class="chart-container">
@@ -898,11 +897,14 @@
       container.innerHTML = '';
       const now = Date.now();
 
+      // Compensazione offset perfettamente sincronizzata con il padding laterale di 5px
+      const chartPaddingLeft = 5;
+
       for (let i = 0; i < ticks.length - 1; i++) {
         let startT = ticks[i];
         let endT = ticks[i + 1];
-        let leftPixel = xAxis.getPixelForValue(startT);
-        let rightPixel = xAxis.getPixelForValue(endT);
+        let leftPixel = xAxis.getPixelForValue(startT) + chartPaddingLeft;
+        let rightPixel = xAxis.getPixelForValue(endT) + chartPaddingLeft;
         let width = rightPixel - leftPixel;
         if (width <= 0) continue;
 
