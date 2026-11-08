@@ -258,6 +258,34 @@
     }
     .spot-img-box img { width: 100%; height: 100%; object-fit: cover; }
 
+    /* Radar Box Mobile */
+    .radar-container-wrapper {
+      margin-top: 6px;
+      width: 100%;
+      background: #f8fafc;
+      border-top: 1px solid #cbd5e1;
+      border-bottom: 1px solid #cbd5e1;
+      overflow: hidden;
+      padding: 0 5px 5px 5px;
+    }
+    .radar-box {
+      width: 100%;
+      height: 500px;
+      background: #000;
+      border-radius: 6px;
+      border: 1px solid #cbd5e1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      margin-top: 4px;
+    }
+    .radar-box iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+
     /* Lightbox Mobile / Fullscreen */
     .lightbox-overlay {
       display: none;
@@ -387,7 +415,19 @@
 
       </div>
     </div>
+
+    <!-- Blocco Radar Meteo Live 100% Funzionante e Interattivo -->
+<div class="radar-container-wrapper">
+  <div class="spots-header-title">Radar Meteo Live</div>
+  <div class="radar-box">
+    <iframe 
+      src="https://www.meteoeradar.it/radar-meteo?center=45.84,10.64&zoom=7&layer=rr" 
+      title="Radar Meteo Live" 
+      allow="autoplay"
+      style="width: 100%; height: 100%; border: none;">
+    </iframe>
   </div>
+</div>
 
   <!-- Lightbox Mobile -->
   <div class="lightbox-overlay" id="lightboxOverlay" onclick="closeLightbox(event)">
@@ -775,23 +815,19 @@
       const container = document.getElementById('customLegend');
       container.innerHTML = '';
       
-      // Riga 1: Live Delta, MeteoSwiss, MeteoFrance
       const row1 = document.createElement('div'); row1.className = 'legend-row';
-      row1.appendChild(createDatasetLegendBtn(chart, 0)); // Live Delta
-      row1.appendChild(createDatasetLegendBtn(chart, 1)); // MeteoSwiss
-      row1.appendChild(createDatasetLegendBtn(chart, 2)); // MeteoFrance
+      row1.appendChild(createDatasetLegendBtn(chart, 0));
+      row1.appendChild(createDatasetLegendBtn(chart, 1));
+      row1.appendChild(createDatasetLegendBtn(chart, 2));
       container.appendChild(row1);
 
-      // Riga 2: ICON, GFS
       const row2 = document.createElement('div'); row2.className = 'legend-row';
-      row2.appendChild(createDatasetLegendBtn(chart, 3)); // ICON
-      row2.appendChild(createDatasetLegendBtn(chart, 4)); // GFS
+      row2.appendChild(createDatasetLegendBtn(chart, 3));
+      row2.appendChild(createDatasetLegendBtn(chart, 4));
       container.appendChild(row2);
 
-      // Riga 3 (In fondo alla lista): Sunrise & Sunset
       const row3 = document.createElement('div'); row3.className = 'legend-row';
       
-      // Sunrise Toggle Button
       const sunriseBtn = document.createElement('div');
       sunriseBtn.className = 'legend-btn';
       sunriseBtn.style.opacity = showSunriseLines ? '1' : '0.4';
@@ -803,7 +839,6 @@
       };
       row3.appendChild(sunriseBtn);
 
-      // Sunset Toggle Button
       const sunsetBtn = document.createElement('div');
       sunsetBtn.className = 'legend-btn';
       sunsetBtn.style.opacity = showSunsetLines ? '1' : '0.4';
