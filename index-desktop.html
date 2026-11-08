@@ -226,7 +226,7 @@
       fill: #475569;
     }
 
-    /* Griglia Webcam Spot (6 Colonne su Desktop) */
+    /* Griglia Webcam Spot */
     .spots-container-wrapper {
       margin-top: 10px;
       width: 100%;
@@ -272,7 +272,7 @@
     }
     .spot-img-box {
       width: 100%;
-      height: 156px;
+      height: 120px;
       background: #e2e8f0;
       border-radius: 6px;
       overflow: hidden;
@@ -391,7 +391,6 @@
       <div class="spots-header-title">Live Webcams</div>
       <div class="spots-grid">
         
-        <!-- 1. Torbole -->
         <div class="spot-section">
           <span class="spot-label">Torbole</span>
           <div class="spot-img-box" onclick="openLightbox('https://www.addicted-sports.com/fileadmin/webcam/torbole/current/1200.jpg', 'Torbole')">
@@ -399,7 +398,6 @@
           </div>
         </div>
 
-        <!-- 2. Limone -->
         <div class="spot-section">
           <span class="spot-label">Limone</span>
           <div class="spot-img-box" onclick="openLightbox('https://www.addicted-sports.com/fileadmin/webcam/caporeamol/current/1200.jpg', 'Limone')">
@@ -407,7 +405,6 @@
           </div>
         </div>
 
-        <!-- 3. Campagnola -->
         <div class="spot-section">
           <span class="spot-label">Campagnola</span>
           <div class="spot-img-box" onclick="openLightbox('https://www.addicted-sports.com/fileadmin/webcam/malcesinenord/current/1200.jpg', 'Campagnola')">
@@ -415,7 +412,6 @@
           </div>
         </div>
 
-        <!-- 4. Malcesine -->
         <div class="spot-section">
           <span class="spot-label">Malcesine</span>
           <div class="spot-img-box" onclick="openLightbox('https://www.addicted-sports.com/fileadmin/webcam/gardasee/current/1200.jpg', 'Malcesine')">
@@ -423,7 +419,6 @@
           </div>
         </div>
 
-        <!-- 5. Campione -->
         <div class="spot-section">
           <span class="spot-label">Campione</span>
           <div class="spot-img-box" onclick="openLightbox('https://www.addicted-sports.com/fileadmin/webcam/campione/current/1200.jpg', 'Campione')">
@@ -431,7 +426,6 @@
           </div>
         </div>
 
-        <!-- 6. Desenzano -->
         <div class="spot-section">
           <span class="spot-label">Desenzano</span>
           <div class="spot-img-box" onclick="openLightbox('https://stazioni.meteoproject.it/webcam/desenzano/desenzanodelgarda.jpg', 'Desenzano')">
@@ -583,29 +577,8 @@
     function setupCustomLegend(chart) {
       const legendContainer = document.getElementById('customLegend');
       legendContainer.innerHTML = '';
-      
-      const sunriseBtn = document.createElement('div');
-      sunriseBtn.className = 'legend-btn';
-      sunriseBtn.style.opacity = showSunriseLines ? '1' : '0.4';
-      sunriseBtn.innerHTML = '<span style="width:10px;height:10px;display:inline-block;border-radius:2px;background:#eab308"></span><span>Sunrise</span>';
-      sunriseBtn.onclick = () => {
-        showSunriseLines = !showSunriseLines;
-        sunriseBtn.style.opacity = showSunriseLines ? '1' : '0.4';
-        chart.update();
-      };
-      legendContainer.appendChild(sunriseBtn);
 
-      const sunsetBtn = document.createElement('div');
-      sunsetBtn.className = 'legend-btn';
-      sunsetBtn.style.opacity = showSunsetLines ? '1' : '0.4';
-      sunsetBtn.innerHTML = '<span style="width:10px;height:10px;display:inline-block;border-radius:2px;background:#f97316"></span><span>Sunset</span>';
-      sunsetBtn.onclick = () => {
-        showSunsetLines = !showSunsetLines;
-        sunsetBtn.style.opacity = showSunsetLines ? '1' : '0.4';
-        chart.update();
-      };
-      legendContainer.appendChild(sunsetBtn);
-
+      // 1. Prima tutti i Dataset dei Modelli
       chart.data.datasets.forEach((dataset, index) => {
         const item = document.createElement('div');
         item.className = 'legend-btn';
@@ -618,6 +591,30 @@
         };
         legendContainer.appendChild(item);
       });
+
+      // 2. Alla fine della lista: Pulsante Sunrise
+      const sunriseBtn = document.createElement('div');
+      sunriseBtn.className = 'legend-btn';
+      sunriseBtn.style.opacity = showSunriseLines ? '1' : '0.4';
+      sunriseBtn.innerHTML = '<span style="width:10px;height:10px;display:inline-block;border-radius:2px;background:#eab308"></span><span>Sunrise</span>';
+      sunriseBtn.onclick = () => {
+        showSunriseLines = !showSunriseLines;
+        sunriseBtn.style.opacity = showSunriseLines ? '1' : '0.4';
+        chart.update();
+      };
+      legendContainer.appendChild(sunriseBtn);
+
+      // 3. Alla fine della lista: Pulsante Sunset
+      const sunsetBtn = document.createElement('div');
+      sunsetBtn.className = 'legend-btn';
+      sunsetBtn.style.opacity = showSunsetLines ? '1' : '0.4';
+      sunsetBtn.innerHTML = '<span style="width:10px;height:10px;display:inline-block;border-radius:2px;background:#f97316"></span><span>Sunset</span>';
+      sunsetBtn.onclick = () => {
+        showSunsetLines = !showSunsetLines;
+        sunsetBtn.style.opacity = showSunsetLines ? '1' : '0.4';
+        chart.update();
+      };
+      legendContainer.appendChild(sunsetBtn);
     }
 
     async function loadChartData() {
