@@ -115,12 +115,13 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 4px;
+      gap: 3px;
       cursor: pointer;
-      font-size: 0.6rem;
+      font-size: 0.55rem;
       font-weight: 700;
       color: #1e293b;
       white-space: nowrap;
+      user-select: none;
     }
 
     .timeline-bar {
@@ -140,7 +141,7 @@
       background: transparent;
       border: none;
       border-radius: 4px;
-      padding: 5px 1px;
+      padding: 4px 1px;
       text-align: center;
       cursor: pointer;
       font-size: 0.6rem;
@@ -154,7 +155,7 @@
 
     .chart-container {
       width: 100%;
-      height: 290px;
+      height: 280px;
       position: relative;
     }
     #loading {
@@ -199,7 +200,7 @@
     .hourly-weather-icon { display: flex; align-items: center; height: 14px; }
     .hourly-weather-icon svg { width: 14px; height: 14px; fill: #475569; }
 
-    /* Griglia Webcam Mobile (3 colonne x 2 righe per ospitare i 6 spot) */
+    /* Griglia Webcam Mobile (3 colonne x 2 righe) */
     .spots-container-wrapper {
       margin-top: 6px;
       width: 100%;
@@ -245,7 +246,7 @@
     }
     .spot-img-box {
       width: 100%;
-      height: 60px;
+      height: 55px;
       background: #e2e8f0;
       border-radius: 4px;
       overflow: hidden;
@@ -404,6 +405,8 @@
     let globalRawData = [];
     let globalOpenMeteoData = { times: [], temps: [], codes: [] };
     let globalSunData = { sunrises: [], sunsets: [] };
+    let showSunriseLines = false;
+    let showSunsetLines = false;
     let latestDataTimestamp = null;
     let nextRefreshTimestamp = null;
     let countdownInterval = null;
@@ -672,6 +675,55 @@
         }
       };
 
+      const nowLinePlugin = {
+        id: 'nowLine',
+        afterDraw: (chart) => {
+          const xAxis = chart.scales.x, yAxis = chart.scales.y;
+          const nowTime = Date.now();
+          const xPixel = xAxis.getPixelForValue(nowTime);
+          if (xPixel >= xAxis.left && xPixel <= xAxis.right) {
+            const ctx = chart.ctx;
+            ctx.save();
+            ctx.beginPath(); ctx.moveTo(xPixel, yAxis.top); ctx.lineTo(xPixel, yAxis.bottom);
+            ctx.lineWidth = 2; ctx.strokeStyle = '#ef4444'; ctx.setLineDash([3, 3]); ctx.stroke();
+            ctx.fillStyle = '#ef4444'; ctx.fillRect(xPixel - 15, yAxis.top - 2, 30, 14);
+            ctx.fillStyle = '#ffffff'; ctx.font = 'bold 9.5px sans-serif'; ctx.fillText('NOW', xPixel - 11, yAxis.top + 8);
+            ctx.restore();
+          }
+        }
+      };
+
+      const sunLinesPlugin = {
+        id: 'sunLines',
+        afterDraw: (chart) => {
+          const xAxis = chart.scales.x, yAxis = chart.scales.y, ctx = chart.ctx;
+          ctx.save();
+          if (showSunriseLines && globalSunData.sunrises) {
+            globalSunData.sunrises.forEach(ts => {
+              const xPixel = xAxis.getPixelForValue(ts);
+              if (xPixel >= xAxis.left && xPixel <= xAxis.right) {
+                ctx.beginPath(); ctx.moveTo(xPixel, yAxis.top); ctx.lineTo(xPixel, yAxis.bottom);
+                ctx.lineWidth = 1.2; ctx.strokeStyle = 'rgba(234, 179, 8, 0.85)'; ctx.setLineDash([3, 3]); ctx.stroke(); ctx.setLineDash([]);
+                ctx.fillStyle = '#ca8a04'; ctx.font = '600 9px sans-serif';
+                ctx.fillText(`☀️ ${new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`, xPixel + 3, yAxis.bottom - 6);
+              }
+            });
+          }
+          if (showSunsetLines && globalSunData.sunsets) {
+            globalSunData.sunsets.forEach(ts => {
+              const xPixel = xAxis.getPixelForValue(ts);
+              if (xPixel >= xAxis.left && xPixel <= xAxis.right) {
+                ctx.beginPath(); ctx.moveTo(xPixel, yAxis.top); ctx.lineTo(xPixel, yAxis.bottom);
+                ctx.lineWidth = 1.2; ctx.strokeStyle = 'rgba(249, 115, 22, 0.85)'; ctx.setLineDash([3, 3]); ctx.stroke(); ctx.setLineDash([]);
+                ctx.fillStyle = '#c2410c'; ctx.font = '600 9px sans-serif';
+                ctx.fillText(`🌙 ${new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`, xPixel + 3, yAxis.bottom - 6);
+              }
+            });
+          }
+          ctx.restore();
+        }
+      };
+
       const alignUIElementsPlugin = { id: 'alignUIElements', afterLayout: (chart) => renderHourlyInfoBar(ticks, chart) };
 
       if (chartInstance) chartInstance.destroy();
@@ -713,7 +765,7 @@
             }
           }
         },
-        plugins: [customLinesPlugin, alignUIElementsPlugin]
+        plugins: [customLinesPlugin, nowLinePlugin, sunLinesPlugin, alignUIElementsPlugin]
       });
 
       setupCustomLegend(chartInstance);
@@ -722,16 +774,48 @@
     function setupCustomLegend(chart) {
       const container = document.getElementById('customLegend');
       container.innerHTML = '';
+      
+      // Riga 1: Live Delta, MeteoSwiss, MeteoFrance
       const row1 = document.createElement('div'); row1.className = 'legend-row';
-      row1.appendChild(createDatasetLegendBtn(chart, 0));
-      row1.appendChild(createDatasetLegendBtn(chart, 1));
-      row1.appendChild(createDatasetLegendBtn(chart, 2));
+      row1.appendChild(createDatasetLegendBtn(chart, 0)); // Live Delta
+      row1.appendChild(createDatasetLegendBtn(chart, 1)); // MeteoSwiss
+      row1.appendChild(createDatasetLegendBtn(chart, 2)); // MeteoFrance
       container.appendChild(row1);
 
+      // Riga 2: ICON, GFS
       const row2 = document.createElement('div'); row2.className = 'legend-row';
-      row2.appendChild(createDatasetLegendBtn(chart, 3));
-      row2.appendChild(createDatasetLegendBtn(chart, 4));
+      row2.appendChild(createDatasetLegendBtn(chart, 3)); // ICON
+      row2.appendChild(createDatasetLegendBtn(chart, 4)); // GFS
       container.appendChild(row2);
+
+      // Riga 3 (In fondo alla lista): Sunrise & Sunset
+      const row3 = document.createElement('div'); row3.className = 'legend-row';
+      
+      // Sunrise Toggle Button
+      const sunriseBtn = document.createElement('div');
+      sunriseBtn.className = 'legend-btn';
+      sunriseBtn.style.opacity = showSunriseLines ? '1' : '0.4';
+      sunriseBtn.innerHTML = '<span style="width:6px;height:6px;display:inline-block;border-radius:2px;background:#eab308"></span> Sunrise';
+      sunriseBtn.onclick = () => {
+        showSunriseLines = !showSunriseLines;
+        sunriseBtn.style.opacity = showSunriseLines ? '1' : '0.4';
+        chart.update();
+      };
+      row3.appendChild(sunriseBtn);
+
+      // Sunset Toggle Button
+      const sunsetBtn = document.createElement('div');
+      sunsetBtn.className = 'legend-btn';
+      sunsetBtn.style.opacity = showSunsetLines ? '1' : '0.4';
+      sunsetBtn.innerHTML = '<span style="width:6px;height:6px;display:inline-block;border-radius:2px;background:#f97316"></span> Sunset';
+      sunsetBtn.onclick = () => {
+        showSunsetLines = !showSunsetLines;
+        sunsetBtn.style.opacity = showSunsetLines ? '1' : '0.4';
+        chart.update();
+      };
+      row3.appendChild(sunsetBtn);
+
+      container.appendChild(row3);
     }
 
     function createDatasetLegendBtn(chart, datasetIndex) {
@@ -739,7 +823,7 @@
       const btn = document.createElement('div'); btn.className = 'legend-btn';
       const meta = chart.getDatasetMeta(datasetIndex);
       btn.style.opacity = (meta && meta.hidden) ? '0.4' : '1';
-      btn.innerHTML = `<span style="width:7px;height:7px;background:${ds.borderColor};display:inline-block;border-radius:2px;"></span> ${ds.label}`;
+      btn.innerHTML = `<span style="width:6px;height:6px;background:${ds.borderColor};display:inline-block;border-radius:2px;"></span> ${ds.label}`;
       btn.onclick = () => {
         const m = chart.getDatasetMeta(datasetIndex);
         m.hidden = m.hidden === null ? !ds.hidden : null;
