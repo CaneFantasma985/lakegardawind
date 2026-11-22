@@ -451,12 +451,20 @@
     
     let chartInstance = null;
     let globalRawData = [];
+    let globalRealDeltaPoints = [];
     let globalOpenMeteoData = { times: [], temps: [], codes: [] };
     let globalSunData = { sunrises: [], sunsets: [] };
     let showSunriseLines = false;
     let showSunsetLines = false;
     let nextRefreshTimestamp = null;
     let countdownInterval = null;
+
+    const MODEL_FIELDS = [
+      { key: 'meteoswiss_icon_ch1', datasetIndex: 1 },
+      { key: 'meteofrance_seamless', datasetIndex: 2 },
+      { key: 'icon_seamless', datasetIndex: 3 },
+      { key: 'gfs_seamless', datasetIndex: 4 }
+    ];
 
     function openLightbox(imgSrc, title) {
       document.getElementById('lightboxImg').src = imgSrc;
@@ -483,8 +491,8 @@
 
     function getActiveStarsCount(avgVal) {
       const absVal = Math.abs(avgVal);
-      if (absVal >= 3.75) return 3;
-      if (absVal >= 2.75) return 2;
+      if (absVal >= 3.25) return 3;
+      if (absVal >= 2.5) return 2;
       if (absVal >= 1.75) return 1;
       return 0;
     }
@@ -582,12 +590,14 @@
       chart.data.datasets.forEach((dataset, index) => {
         const item = document.createElement('div');
         item.className = 'legend-btn';
+        const isHidden = chart.getDatasetMeta(index).hidden;
+        item.style.opacity = isHidden ? '0.4' : '1';
         item.innerHTML = `<span style="width:10px;height:10px;display:inline-block;border-radius:2px;background:${dataset.borderColor}"></span><span>${dataset.label}</span>`;
         item.onclick = () => {
           const meta = chart.getDatasetMeta(index);
-          meta.hidden = meta.hidden === null ? !chart.data.datasets[index].hidden : null;
-          chart.update();
+          meta.hidden = !meta.hidden;
           item.style.opacity = meta.hidden ? '0.4' : '1';
+          chart.update();
         };
         legendContainer.appendChild(item);
       });
@@ -630,17 +640,21 @@
 
         updateHeaderLatestInfo(realDeltaArray);
 
+        globalRealDeltaPoints = realDeltaArray
+          .filter(item => item && item.time && item.real_delta !== null && item.real_delta !== undefined && !isNaN(item.real_delta))
+          .map(item => ({
+            time: new Date(item.time).getTime(),
+            real_delta: Number(item.real_delta)
+          }))
+          .filter(pt => !isNaN(pt.time))
+          .sort((a, b) => a.time - b.time);
+
         let realDeltaMap = {};
-        realDeltaArray.forEach(item => {
-          if (item && item.time) {
-            const tDate = new Date(item.time);
-            if (!isNaN(tDate.getTime())) {
-              realDeltaMap[tDate.getTime()] = item.real_delta;
-              const tDateHour = new Date(tDate);
-              tDateHour.setMinutes(0, 0, 0);
-              realDeltaMap[tDateHour.getTime()] = item.real_delta;
-            }
-          }
+        globalRealDeltaPoints.forEach(pt => {
+          realDeltaMap[pt.time] = pt.real_delta;
+          const tDateHour = new Date(pt.time);
+          tDateHour.setMinutes(0, 0, 0);
+          realDeltaMap[tDateHour.getTime()] = pt.real_delta;
         });
 
         if (jsonMain.weather_info && jsonMain.weather_info.hourly) {
@@ -711,16 +725,12 @@
         const realDelta = [], meteoSwiss = [], meteoFrance = [], iconSeamless = [], gfsSeamless = [];
         let maxAbsoluteValue = 0;
 
-        realDeltaArray.forEach(item => {
-          if (item && item.time && item.real_delta != null) {
-            const t = new Date(item.time).getTime();
-            if (!isNaN(t) && t >= minTime && t <= maxTime) {
-              maxAbsoluteValue = Math.max(maxAbsoluteValue, Math.abs(item.real_delta));
-              realDelta.push({ x: t, y: item.real_delta });
-            }
+        globalRealDeltaPoints.forEach(pt => {
+          if (pt.time >= minTime && pt.time <= maxTime) {
+            maxAbsoluteValue = Math.max(maxAbsoluteValue, Math.abs(pt.real_delta));
+            realDelta.push({ x: pt.time, y: pt.real_delta });
           }
         });
-        realDelta.sort((a, b) => a.x - b.x);
 
         globalRawData.forEach(item => {
           const t = item.time;
@@ -875,12 +885,6 @@
                 grid: { color: (c) => c.tick.value === 0 ? '#0f172a' : (Math.abs(c.tick.value) === 2 ? '#64748b' : '#e2e8f0'), lineWidth: (c) => c.tick.value === 0 ? 2.5 : (Math.abs(c.tick.value) === 2 ? 1.5 : 1) },
                 ticks: { stepSize: 2, font: { size: 12, weight: '600' }, color: '#334155', callback: (val) => val === 0 ? '0 hPa' : `${val > 0 ? '+' : '-'}${Math.abs(val)} hPa` },
                 title: { display: true, text: 'Pressure Delta', font: { size: 13, weight: 'bold' }, color: '#0f172a' }
-              },
-              y1: {
-                type: 'linear', position: 'right', min: -limitY, max: limitY,
-                grid: { drawOnChartArea: false },
-                ticks: { stepSize: 2, font: { size: 12, weight: '600' }, color: '#334155', callback: (val) => val === 0 ? '0 kn' : `${Math.round(Math.abs(val) * 5)} kn` },
-                title: { display: true, text: 'Estimated Wind', font: { size: 13, weight: 'bold' }, color: '#0f172a' }
               }
             }
           },
@@ -907,6 +911,11 @@
       `;
       const currentRealTime = Date.now();
 
+      // Modelli di forecast attualmente attivi/selezionati nel grafico
+      const activeModelKeys = MODEL_FIELDS
+        .filter(m => !chart.getDatasetMeta(m.datasetIndex).hidden)
+        .map(m => m.key);
+
       for (let i = 0; i < ticks.length - 1; i++) {
         let startT = ticks[i], endT = ticks[i + 1];
         let leftPixel = xAxis.getPixelForValue(startT), rightPixel = xAxis.getPixelForValue(endT);
@@ -918,18 +927,35 @@
         let colBgColor = (dayOfYear % 2 === 0) ? 'rgba(248, 250, 252, 0.7)' : 'rgba(241, 245, 249, 1)';
         
         let matchedItems = rawData.filter(item => item.time >= startT && item.time < endT);
-        let activeStars = 0, isPast = endT <= currentRealTime;
+        let activeStars = 0;
+        // Include anche la fascia oraria attuale (dove startT <= currentRealTime < endT) tra quelle reali (stelline blu)
+        let isPast = startT <= currentRealTime;
         
-        if (matchedItems.length > 0) {
-          if (isPast) {
-            let realVals = matchedItems.filter(item => item.real_delta != null).map(item => item.real_delta);
-            if (realVals.length > 0) activeStars = getActiveStarsCount(realVals.reduce((a, b) => a + b, 0) / realVals.length);
-          } else {
+        if (isPast) {
+          let realVals = globalRealDeltaPoints
+            .filter(pt => pt.time >= startT && pt.time < endT)
+            .map(pt => pt.real_delta);
+
+          if (realVals.length === 0 && matchedItems.length > 0) {
+            realVals = matchedItems
+              .filter(item => item.real_delta != null && !isNaN(item.real_delta))
+              .map(item => Number(item.real_delta));
+          }
+
+          if (realVals.length > 0) {
+            activeStars = getActiveStarsCount(realVals.reduce((a, b) => a + b, 0) / realVals.length);
+          }
+        } else {
+          if (matchedItems.length > 0 && activeModelKeys.length > 0) {
             let vals = [];
             matchedItems.forEach(item => {
-              ['meteoswiss_icon_ch1', 'meteofrance_seamless', 'icon_seamless', 'gfs_seamless'].forEach(k => { if (item[k] != null) vals.push(item[k]); });
+              activeModelKeys.forEach(k => {
+                if (item[k] != null && !isNaN(item[k])) vals.push(Number(item[k]));
+              });
             });
-            if (vals.length > 0) activeStars = getActiveStarsCount(vals.reduce((a, b) => a + b, 0) / vals.length);
+            if (vals.length > 0) {
+              activeStars = getActiveStarsCount(vals.reduce((a, b) => a + b, 0) / vals.length);
+            }
           }
         }
         
