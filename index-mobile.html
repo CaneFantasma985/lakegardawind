@@ -450,6 +450,7 @@
     let globalSunData = { sunrises: [], sunsets: [] };
     let showSunriseLines = false;
     let showSunsetLines = false;
+    let datasetVisibility = [true, true, true, true, true];
     let latestDataTimestamp = null;
     let nextRefreshTimestamp = null;
     let countdownInterval = null;
@@ -743,7 +744,7 @@
         }
       });
 
-      let limitY = maxAbs > 8 ? 10 : (maxAbs > 5 ? 8 : 6);
+      let limitY = maxAbs > 10 ? Math.ceil(maxAbs / 2) * 2 : (maxAbs > 8 ? 10 : (maxAbs > 5 ? 8 : 6));
 
       const customLinesPlugin = {
         id: 'customLines',
@@ -815,11 +816,11 @@
         type: 'line',
         data: {
           datasets: [
-            { label: 'Live Delta', data: realDelta, borderColor: '#0284c7', borderWidth: 3, tension: 0.2, spanGaps: false },
-            { label: 'MeteoSwiss', data: meteoSwiss, borderColor: '#eab308', borderWidth: 1.5, tension: 0.2, spanGaps: false },
-            { label: 'MeteoFrance', data: meteoFrance, borderColor: '#10b981', borderWidth: 1.5, tension: 0.2, spanGaps: false },
-            { label: 'ICON', data: iconSeamless, borderColor: '#8b5cf6', borderWidth: 1.5, tension: 0.2, spanGaps: false },
-            { label: 'GFS', data: gfsSeamless, borderColor: '#f97316', borderWidth: 1.5, tension: 0.2, spanGaps: false }
+            { label: 'Live Delta', data: realDelta, borderColor: '#0284c7', borderWidth: 3, tension: 0.2, spanGaps: false, hidden: !datasetVisibility[0] },
+            { label: 'MeteoSwiss', data: meteoSwiss, borderColor: '#eab308', borderWidth: 1.5, tension: 0.2, spanGaps: false, hidden: !datasetVisibility[1] },
+            { label: 'MeteoFrance', data: meteoFrance, borderColor: '#10b981', borderWidth: 1.5, tension: 0.2, spanGaps: false, hidden: !datasetVisibility[2] },
+            { label: 'ICON', data: iconSeamless, borderColor: '#8b5cf6', borderWidth: 1.5, tension: 0.2, spanGaps: false, hidden: !datasetVisibility[3] },
+            { label: 'GFS', data: gfsSeamless, borderColor: '#f97316', borderWidth: 1.5, tension: 0.2, spanGaps: false, hidden: !datasetVisibility[4] }
           ]
         },
         options: {
@@ -893,13 +894,13 @@
     function createDatasetLegendBtn(chart, datasetIndex) {
       const ds = chart.data.datasets[datasetIndex];
       const btn = document.createElement('div'); btn.className = 'legend-btn';
-      const meta = chart.getDatasetMeta(datasetIndex);
-      btn.style.opacity = meta.hidden ? '0.4' : '1';
+      btn.style.opacity = datasetVisibility[datasetIndex] ? '1' : '0.4';
       btn.innerHTML = `<span style="width:6px;height:6px;background:${ds.borderColor};display:inline-block;border-radius:2px;"></span> ${ds.label}`;
       btn.onclick = () => {
+        datasetVisibility[datasetIndex] = !datasetVisibility[datasetIndex];
         const m = chart.getDatasetMeta(datasetIndex);
-        m.hidden = !m.hidden;
-        btn.style.opacity = m.hidden ? '0.4' : '1';
+        m.hidden = !datasetVisibility[datasetIndex];
+        btn.style.opacity = datasetVisibility[datasetIndex] ? '1' : '0.4';
         chart.update();
       };
       return btn;
@@ -914,7 +915,7 @@
 
       // Modelli di forecast attualmente attivi/selezionati nel grafico
       const activeModelKeys = MODEL_FIELDS
-        .filter(m => !chart.getDatasetMeta(m.datasetIndex).hidden)
+        .filter(m => datasetVisibility[m.datasetIndex])
         .map(m => m.key);
 
       for (let i = 0; i < ticks.length - 1; i++) {
