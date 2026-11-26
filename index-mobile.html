@@ -94,15 +94,12 @@
 
     .legends-bar {
       display: flex;
-      flex-direction: column;
-      gap: 4px;
-      margin-top: 4px;
-      margin-bottom: 6px;
-    }
-    .legend-row {
-      display: flex;
+      flex-direction: row;
+      align-items: stretch;
       justify-content: space-between;
-      gap: 4px;
+      gap: 6px;
+      margin-top: 5px;
+      margin-bottom: 7px;
       width: 100%;
     }
     .legend-btn {
@@ -110,17 +107,19 @@
       min-width: 0;
       background: #f8fafc;
       border: 1px solid #cbd5e1;
+      border-bottom-width: 3px;
+      border-bottom-style: solid;
       border-radius: 5px;
-      padding: 5px 2px;
+      padding: 4px 2px;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 3px;
       cursor: pointer;
-      font-size: 0.55rem;
+      font-size: 0.5rem;
       font-weight: 700;
+      line-height: 1.1;
+      text-align: center;
       color: #1e293b;
-      white-space: nowrap;
       user-select: none;
     }
 
@@ -342,7 +341,7 @@
       <div class="header-top">
         <div class="header-left">
           <h2>Garda Wind Forecast</h2>
-          <p>Live pressure and forecast</p>
+          <p>Live pressure delta and forecast</p>
         </div>
         <div class="header-right-unified">
           <div class="info-section">
@@ -422,7 +421,7 @@
       <div class="spots-header-title">Live Radar Meteo</div>
       <div class="radar-box">
         <iframe 
-          src="https://www.rainviewer.com/map.html?loc=46,10.65,7&oC=true&oCS=1&c=9&o=83&lm=1&layer=radar&sm=1&sn=1&ts=1" 
+          src="https://www.rainviewer.com/map.html?loc=46,10.65,7&oC=true&oCS=1&c=9&o=83&lm=1&layer=radar&sm=1&sn=1&ts=1"
           title="Radar Meteo" 
           allow="autoplay"
           style="width: 100%; height: 100%; border: none;">
@@ -460,6 +459,14 @@
       { key: 'meteofrance_seamless', datasetIndex: 2 },
       { key: 'icon_seamless', datasetIndex: 3 },
       { key: 'gfs_seamless', datasetIndex: 4 }
+    ];
+
+    const LEGEND_LABELS_HTML = [
+      'Live<br>Delta',
+      'Meteo<br>Swiss',
+      'Meteo<br>France',
+      'ICON',
+      'GFS'
     ];
 
     const todayMidnight = new Date();
@@ -852,50 +859,43 @@
     function setupCustomLegend(chart) {
       const container = document.getElementById('customLegend');
       container.innerHTML = '';
-      
-      const row1 = document.createElement('div'); row1.className = 'legend-row';
-      row1.appendChild(createDatasetLegendBtn(chart, 0));
-      row1.appendChild(createDatasetLegendBtn(chart, 1));
-      row1.appendChild(createDatasetLegendBtn(chart, 2));
-      container.appendChild(row1);
 
-      const row2 = document.createElement('div'); row2.className = 'legend-row';
-      row2.appendChild(createDatasetLegendBtn(chart, 3));
-      row2.appendChild(createDatasetLegendBtn(chart, 4));
-      container.appendChild(row2);
+      for (let i = 0; i < 5; i++) {
+        container.appendChild(createDatasetLegendBtn(chart, i));
+      }
 
-      const row3 = document.createElement('div'); row3.className = 'legend-row';
-      
       const sunriseBtn = document.createElement('div');
       sunriseBtn.className = 'legend-btn';
+      sunriseBtn.style.borderBottomColor = '#eab308';
       sunriseBtn.style.opacity = showSunriseLines ? '1' : '0.4';
-      sunriseBtn.innerHTML = '<span style="width:6px;height:6px;display:inline-block;border-radius:2px;background:#eab308"></span> Sunrise';
+      sunriseBtn.innerHTML = '<span>Sunrise<br>Time</span>';
       sunriseBtn.onclick = () => {
         showSunriseLines = !showSunriseLines;
         sunriseBtn.style.opacity = showSunriseLines ? '1' : '0.4';
         chart.update();
       };
-      row3.appendChild(sunriseBtn);
+      container.appendChild(sunriseBtn);
 
       const sunsetBtn = document.createElement('div');
       sunsetBtn.className = 'legend-btn';
+      sunsetBtn.style.borderBottomColor = '#f97316';
       sunsetBtn.style.opacity = showSunsetLines ? '1' : '0.4';
-      sunsetBtn.innerHTML = '<span style="width:6px;height:6px;display:inline-block;border-radius:2px;background:#f97316"></span> Sunset';
+      sunsetBtn.innerHTML = '<span>Sunset<br>Time</span>';
       sunsetBtn.onclick = () => {
         showSunsetLines = !showSunsetLines;
         sunsetBtn.style.opacity = showSunsetLines ? '1' : '0.4';
         chart.update();
       };
-      row3.appendChild(sunsetBtn);
-
-      container.appendChild(row3);
+      container.appendChild(sunsetBtn);
     }
 
     function createDatasetLegendBtn(chart, datasetIndex) {
       const ds = chart.data.datasets[datasetIndex];
-      const btn = document.createElement('div'); btn.className = 'legend-btn';
+      const btn = document.createElement('div');
+      btn.className = 'legend-btn';
+      btn.style.borderBottomColor = ds.borderColor;
       btn.style.opacity = datasetVisibility[datasetIndex] ? '1' : '0.4';
-      btn.innerHTML = `<span style="width:6px;height:6px;background:${ds.borderColor};display:inline-block;border-radius:2px;"></span> ${ds.label}`;
+      btn.innerHTML = `<span>${LEGEND_LABELS_HTML[datasetIndex]}</span>`;
       btn.onclick = () => {
         datasetVisibility[datasetIndex] = !datasetVisibility[datasetIndex];
         const m = chart.getDatasetMeta(datasetIndex);
