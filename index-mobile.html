@@ -2,7 +2,7 @@
 <html lang="it">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
   <title>Lake Garda Wind Forecast - Live Pressure Delta</title>
   <!-- Chart.js + Adapter Luxon -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -23,6 +23,7 @@
       flex-direction: column;
       padding: 0;
       margin: 0;
+      touch-action: manipulation;
     }
     .wrapper {
       width: 100%;
@@ -32,7 +33,7 @@
       flex-direction: column;
       background: white;
       padding: 10px 0;
-      touch-action: pan-y;
+      touch-action: pan-y manipulation;
     }
     .header, .legends-bar, .chart-container {
       padding-left: 5px;
@@ -370,7 +371,7 @@
     <div class="spots-container-wrapper">
       <div class="spots-header-title">Live Webcams</div>
       <div class="spots-grid" id="spotsGrid">
-        
+
         <div class="spot-section">
           <span class="spot-label">Torbole</span>
           <div class="spot-img-box" onclick="openLightbox('https://www.addicted-sports.com/fileadmin/webcam/torbole/current/1200.jpg', 'Torbole')">
@@ -420,9 +421,9 @@
     <div class="radar-container-wrapper">
       <div class="spots-header-title">Live Radar Meteo</div>
       <div class="radar-box">
-        <iframe 
+        <iframe
           src="https://www.rainviewer.com/map.html?loc=46,10.65,7&oC=true&oCS=1&c=9&o=83&lm=1&layer=radar&sm=1&sn=1&ts=1"
-          title="Radar Meteo" 
+          title="Radar Meteo"
           allow="autoplay"
           style="width: 100%; height: 100%; border: none;">
         </iframe>
@@ -441,7 +442,7 @@
 
   <script>
     const API_URL = 'https://black-shape-f92b.nicolo-remelli.workers.dev/';
-    
+
     let chartInstance = null;
     let globalRawData = [];
     let globalRealDeltaPoints = [];
@@ -475,21 +476,42 @@
     const maxAllowedMidnight = new Date(todayMidnight.getTime() + (5 * 24 * 3600 * 1000)).getTime();
     let selectedDayMidnight = todayMidnight.getTime();
 
+    // Reset zoom del viewport quando si chiude il lightbox
+    function resetMobileViewportZoom() {
+      window.scrollTo(0, 0);
+      const metaViewport = document.querySelector('meta[name="viewport"]');
+      if (!metaViewport) return;
+
+      const normalContent = 'width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes';
+      metaViewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');
+
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          metaViewport.setAttribute('content', normalContent);
+        }, 50);
+      });
+    }
+
     // Lightbox / Zoom Webcam
     function openLightbox(imgSrc, title) {
-      document.getElementById('lightboxImg').src = imgSrc;
+      const imgEl = document.getElementById('lightboxImg');
+      imgEl.src = '';
+      imgEl.src = imgSrc;
       document.getElementById('lightboxTitle').innerText = title;
       document.getElementById('lightboxOverlay').style.display = 'flex';
       document.body.style.overflow = 'hidden'; // Blocca lo scroll del body
     }
 
-    function closeLightbox(event) { 
-      document.getElementById('lightboxOverlay').style.display = 'none'; 
+    function closeLightbox(event) {
+      document.getElementById('lightboxOverlay').style.display = 'none';
       document.body.style.overflow = '';
+      resetMobileViewportZoom();
     }
-    function closeLightboxDirect() { 
-      document.getElementById('lightboxOverlay').style.display = 'none'; 
+
+    function closeLightboxDirect() {
+      document.getElementById('lightboxOverlay').style.display = 'none';
       document.body.style.overflow = '';
+      resetMobileViewportZoom();
     }
 
     // Gestione Swipe Touch per cambio giorno
@@ -998,7 +1020,7 @@
       const curSec = (now.getMinutes() * 60) + now.getSeconds() + (now.getMilliseconds() / 1000);
       let nextSec = slots.find(s => (s.m * 60 + s.s) > curSec);
       let delayMs = nextSec ? ((nextSec.m * 60 + nextSec.s) - curSec) * 1000 : ((3600 + slots[0].m * 60) - curSec) * 1000;
-      
+
       startCountdown(now.getTime() + delayMs);
       setTimeout(() => { loadAllData(); scheduleNextRefresh(); }, delayMs);
     }
